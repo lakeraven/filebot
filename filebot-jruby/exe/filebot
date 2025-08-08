@@ -1,0 +1,47 @@
+#!/usr/bin/env ruby
+# frozen_string_literal: true
+
+require "filebot"
+
+# Simple CLI interface for FileBot
+class FileBotCLI
+  def self.run(args)
+    case args[0]
+    when "version"
+      puts "FileBot #{FileBot::VERSION}"
+    when "test"
+      puts "🧪 Testing FileBot connection..."
+      begin
+        filebot = FileBot.new(:iris)
+        puts "✅ FileBot initialized successfully"
+        puts "📊 Available operations: patient_lookup, search, workflows"
+      rescue => e
+        puts "❌ Error: #{e.message}"
+        puts "💡 Check IRIS credentials and JAR files"
+      end
+    when "help", "--help", "-h", nil
+      puts <<~HELP
+        FileBot - Healthcare MUMPS Modernization Platform
+        
+        Usage:
+          filebot [command]
+        
+        Commands:
+          version    Show FileBot version
+          test       Test database connection
+          help       Show this help message
+        
+        Examples:
+          filebot version
+          filebot test
+        
+        Documentation: https://www.github.com/lakeraven/filebot
+      HELP
+    else
+      puts "Unknown command: #{args[0]}"
+      puts "Run 'filebot help' for available commands"
+    end
+  end
+end
+
+FileBotCLI.run(ARGV) if __FILE__ == $0
