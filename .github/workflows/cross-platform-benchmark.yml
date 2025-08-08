@@ -51,7 +51,7 @@ jobs:
         bundle exec ruby ../benchmarks/jruby_standalone_benchmark.rb
 
     - name: 📊 Upload JRuby Results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: jruby-benchmark-results
         path: "*jruby*benchmark*.json"
@@ -101,7 +101,7 @@ jobs:
         ./mvnw exec:java -Dexec.mainClass="com.lakeraven.filebot.benchmark.JavaBenchmark"
 
     - name: 📊 Upload Java Results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: java-benchmark-results
         path: "*java*benchmark*.json"
@@ -152,7 +152,7 @@ jobs:
         python test_pure_native_sdk_benchmark.py
 
     - name: 📊 Upload Python Results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: python-benchmark-results
         path: "*python*benchmark*.json"
@@ -166,7 +166,7 @@ jobs:
     - uses: actions/checkout@v4
 
     - name: 📥 Download All Results
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
 
     - name: 🐍 Set up Python for Analysis
       uses: actions/setup-python@v4
@@ -315,7 +315,7 @@ jobs:
         echo "- 🔬 **Data Science**: Native pandas/numpy integration" >> $GITHUB_STEP_SUMMARY
 
     - name: 📊 Archive Final Report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: cross-platform-final-report
         path: |
