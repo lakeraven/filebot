@@ -51,6 +51,8 @@ lab_result = filebot.lab_result_entry_workflow("123", "CBC", "Normal")
 
 ### InterSystems IRIS
 
+**⚖️ Legal Notice**: InterSystems IRIS JAR files (`intersystems-binding-*.jar`, `intersystems-jdbc-*.jar`) are proprietary software components owned by InterSystems Corporation. These files must be obtained separately from InterSystems and are subject to InterSystems' licensing terms. FileBot does not distribute or include these JAR files.
+
 1. **Install IRIS JAR files** in one of these locations:
    - `vendor/jars/` (Rails app)
    - `/usr/local/lib/intersystems/` (system-wide)
