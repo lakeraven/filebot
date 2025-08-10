@@ -16,29 +16,57 @@
 module FileBot
   autoload :VERSION, "filebot/version"
 
+  # Core components
   autoload :Core, "filebot/core"
+  autoload :Configuration, "filebot/configuration"
+  autoload :AdapterRegistry, "filebot/adapter_registry"
   autoload :DatabaseAdapterFactory, "filebot/database_adapter_factory"
+  
+  # Healthcare and utilities
   autoload :HealthcareWorkflows, "filebot/healthcare_workflows"
   autoload :PatientParser, "filebot/patient_parser"
   autoload :DateFormatter, "filebot/date_formatter"
   autoload :CredentialsManager, "filebot/credentials_manager"
   autoload :JarManager, "filebot/jar_manager"
 
+  # Adapter ecosystem
   module Adapters
+    autoload :BaseAdapter, "filebot/adapters/base_adapter"
     autoload :IRISAdapter, "filebot/adapters/iris_adapter"
-    # Future adapters:
-    # autoload :YottaDBAdapter, "filebot/adapters/yottadb_adapter"
-    # autoload :GTMAdapter, "filebot/adapters/gtm_adapter"
+    autoload :YottaDBAdapter, "filebot/adapters/yottadb_adapter"
+    autoload :GTMAdapter, "filebot/adapters/gtm_adapter"
   end
 
   # Main FileBot interface combining core operations and healthcare workflows
+  # Now implementation-agnostic with pluggable adapter architecture
   class Engine
-    attr_reader :core, :workflows
+    attr_reader :core, :workflows, :adapter
 
-    def initialize(adapter_type = :auto_detect)
-      adapter = DatabaseAdapterFactory.create_adapter(adapter_type)
-      @core = Core.new(adapter)
-      @workflows = HealthcareWorkflows.new(adapter)
+    def initialize(adapter_type = :auto_detect, config = {})
+      # Create adapter with configuration support
+      @adapter = if adapter_type.is_a?(Symbol)
+        DatabaseAdapterFactory.create_adapter(adapter_type, config)
+      else
+        adapter_type  # Assume it's already an adapter instance
+      end
+      
+      @core = Core.new(@adapter, config)
+      @workflows = HealthcareWorkflows.new(@adapter)
+    end
+
+    # === Adapter Management ===
+
+    def adapter_info
+      @core.adapter_info
+    end
+
+    def switch_adapter!(new_adapter_type, config = {})
+      @core.switch_adapter!(new_adapter_type, config)
+      @workflows = HealthcareWorkflows.new(@core.adapter)
+    end
+
+    def test_connection
+      @core.test_connection
     end
 
     # Delegate core operations

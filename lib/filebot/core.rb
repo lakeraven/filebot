@@ -2,15 +2,17 @@
 
 module FileBot
   # Core FileBot class for high-performance healthcare operations
-  # Uses pure Java Native API for direct MUMPS global access
+  # Implementation-agnostic design works with any MUMPS database adapter
   class Core
-    attr_reader :adapter
+    attr_reader :adapter, :config
 
-    def initialize(adapter = nil)
-      @adapter = adapter || DatabaseAdapterFactory.create_adapter
+    def initialize(adapter = nil, config = {})
+      @config = config.is_a?(Hash) ? config : {}
+      @adapter = adapter || create_adapter_from_config
+      validate_adapter!
     end
 
-    # Ultra-fast patient lookup using pure Java Native API
+    # Ultra-fast patient lookup using adapter-agnostic global access
     def get_patient_demographics(dfn)
       begin
         result = @adapter.get_global("^DPT", dfn.to_s, "0")
@@ -157,7 +159,7 @@ module FileBot
       errors << "DOB required" if patient_data[:dob].nil?
 
       # Only check database for uniqueness if basic validation passes
-      if errors.empty? && patient_data[:ssn].present?
+      if errors.empty? && patient_data[:ssn]&.to_s != ""
         begin
           exists = @adapter.data_global("^DPT", "SSN", patient_data[:ssn])
           errors << "SSN already exists" if exists && exists > 0
@@ -569,12 +571,12 @@ module FileBot
       errors << "Name required" if pieces[0].blank?
       
       # Gender validation
-      if pieces[1].present? && !%w[M F].include?(pieces[1])
+      if pieces[1]&.to_s != "" && !%w[M F].include?(pieces[1])
         errors << "Invalid gender"
       end
       
       # SSN format
-      if pieces[8].present? && !pieces[8].match?(/^\d{9}$/)
+      if pieces[8]&.to_s != "" && !pieces[8].match?(/^\d{9}$/)
         errors << "Invalid SSN format"
       end
       
@@ -587,17 +589,17 @@ module FileBot
       pieces = entry_data.split("^")
       
       # Remove B (name) cross-reference
-      if pieces[0].present?
+      if pieces[0]&.to_s != ""
         @adapter.set_global("", global_root, "B", pieces[0].upcase, ien)
       end
       
       # Remove SSN cross-reference
-      if pieces[8].present?
+      if pieces[8]&.to_s != ""
         @adapter.set_global("", global_root, "SSN", pieces[8], ien)
       end
       
       # Remove DOB cross-reference if exists
-      if pieces[2].present?
+      if pieces[2]&.to_s != ""
         @adapter.set_global("", global_root, "DOB", pieces[2], ien)
       end
     end
@@ -611,18 +613,75 @@ module FileBot
       # Update B (name) cross-reference if changed
       if old_pieces[0] != new_pieces[0]
         # Remove old reference
-        @adapter.set_global("", global_root, "B", old_pieces[0].upcase, ien) if old_pieces[0].present?
+        @adapter.set_global("", global_root, "B", old_pieces[0].upcase, ien) if old_pieces[0]&.to_s != ""
         # Add new reference
-        @adapter.set_global("", global_root, "B", new_pieces[0].upcase, ien) if new_pieces[0].present?
+        @adapter.set_global("", global_root, "B", new_pieces[0].upcase, ien) if new_pieces[0]&.to_s != ""
       end
       
       # Update SSN cross-reference if changed
       if old_pieces[8] != new_pieces[8]
         # Remove old reference
-        @adapter.set_global("", global_root, "SSN", old_pieces[8], ien) if old_pieces[8].present?
+        @adapter.set_global("", global_root, "SSN", old_pieces[8], ien) if old_pieces[8]&.to_s != ""
         # Add new reference
-        @adapter.set_global("", global_root, "SSN", new_pieces[8], ien) if new_pieces[8].present?
+        @adapter.set_global("", global_root, "SSN", new_pieces[8], ien) if new_pieces[8]&.to_s != ""
       end
+    end
+
+    # === Adapter Management ===
+
+    # Get adapter information
+    # @return [Hash] Adapter metadata
+    def adapter_info
+      {
+        type: @adapter.adapter_type,
+        version: @adapter.version_info,
+        capabilities: @adapter.capabilities,
+        connected: @adapter.connected?
+      }
+    end
+
+    # Test adapter connectivity
+    # @return [Hash] Connection test result
+    def test_connection
+      @adapter.test_connection
+    end
+
+    # Switch to a different adapter
+    # @param new_adapter [Symbol, BaseAdapter] New adapter type or instance
+    # @param config [Hash] Configuration for new adapter
+    def switch_adapter!(new_adapter, config = {})
+      @adapter.close if @adapter.respond_to?(:close)
+      
+      @adapter = if new_adapter.is_a?(Symbol)
+        DatabaseAdapterFactory.create_adapter(new_adapter, config)
+      else
+        new_adapter
+      end
+      
+      validate_adapter!
+      puts "FileBot: Switched to #{@adapter.adapter_type} adapter" if ENV['FILEBOT_DEBUG']
+    end
+
+    private
+
+    def create_adapter_from_config
+      adapter_type = @config[:adapter] || :auto_detect
+      DatabaseAdapterFactory.create_adapter(adapter_type, @config)
+    end
+
+    def validate_adapter!
+      unless @adapter.respond_to?(:get_global) && 
+             @adapter.respond_to?(:set_global) &&
+             @adapter.respond_to?(:order_global) &&
+             @adapter.respond_to?(:data_global)
+        raise ArgumentError, "Adapter must implement BaseAdapter interface"
+      end
+
+      unless @adapter.respond_to?(:adapter_type)
+        raise ArgumentError, "Adapter must provide adapter_type method"
+      end
+
+      puts "FileBot: Using #{@adapter.adapter_type} adapter" if ENV['FILEBOT_DEBUG']
     end
   end
 end
