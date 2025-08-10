@@ -11,7 +11,7 @@
 # - FHIR R4 serialization capabilities
 # - Multi-platform MUMPS database support (IRIS, YottaDB, GT.M)
 # - Event sourcing compatible architecture
-# - Offline-first capabilities with Rails 8 Hotwire integration
+# - Offline-first capabilities with modern web framework integration
 
 module FileBot
   autoload :VERSION, "filebot/version"
@@ -64,6 +64,35 @@ module FileBot
 
     def validate_patient(patient_data)
       @core.validate_patient(patient_data)
+    end
+
+    # Delegate core database operations
+    def find_entries(file_number, search_value, search_field = nil, flags = nil, max_results = 10)
+      @core.find_entries(file_number, search_value, search_field, flags, max_results)
+    end
+
+    def list_entries(file_number, start_from = "", fields = ".01", max_results = 20, screen = nil)
+      @core.list_entries(file_number, start_from, fields, max_results, screen)
+    end
+
+    def delete_entry(file_number, ien)
+      @core.delete_entry(file_number, ien)
+    end
+
+    def lock_entry(file_number, ien, timeout = 30)
+      @core.lock_entry(file_number, ien, timeout)
+    end
+
+    def unlock_entry(file_number, ien)
+      @core.unlock_entry(file_number, ien)
+    end
+
+    def gets_entry(file_number, ien, fields, flags = "EI")
+      @core.gets_entry(file_number, ien, fields, flags)
+    end
+
+    def update_entry(file_number, ien, field_data)
+      @core.update_entry(file_number, ien, field_data)
     end
 
     # Delegate healthcare workflows
