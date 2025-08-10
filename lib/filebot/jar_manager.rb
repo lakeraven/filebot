@@ -12,19 +12,19 @@ module FileBot
         add_to_classpath(binding_jar, "IRIS binding")
         add_to_classpath(jdbc_jar, "IRIS JDBC")
 
-        Rails.logger.info "FileBot: IRIS JARs loaded successfully"
+        puts "FileBot: IRIS JARs loaded successfully" if ENV['FILEBOT_DEBUG']
       end
 
       # Find and load YottaDB JAR files (future implementation)
       def load_yottadb_jars!
         # YottaDB doesn't have Java JAR dependencies
-        Rails.logger.info "FileBot: YottaDB native installation detected"
+        puts "FileBot: YottaDB native installation detected" if ENV['FILEBOT_DEBUG']
       end
 
       # Find and load GT.M JAR files (future implementation)
       def load_gtm_jars!
         # GT.M doesn't have standard Java JAR dependencies
-        Rails.logger.info "FileBot: GT.M native installation detected"
+        puts "FileBot: GT.M native installation detected" if ENV['FILEBOT_DEBUG']
       end
 
       private
@@ -42,10 +42,10 @@ module FileBot
 
       def iris_search_paths
         @iris_search_paths ||= [
-          # Rails application directories
-          Rails.root.join("lib", "jars"),
-          Rails.root.join("vendor", "jars"),
-          Rails.root.join("vendor", "java"),
+          # Application directories
+          File.join(Dir.pwd, "lib", "jars"),
+          File.join(Dir.pwd, "vendor", "jars"),
+          File.join(Dir.pwd, "vendor", "java"),
 
           # Environment-specific paths
           ENV["INTERSYSTEMS_HOME"],
@@ -96,7 +96,7 @@ module FileBot
 
         # Add to JRuby classpath
         $CLASSPATH << jar_path
-        Rails.logger.debug "FileBot: Added #{description} JAR: #{jar_path}"
+        puts "FileBot: Added #{description} JAR: #{jar_path}" if ENV['FILEBOT_DEBUG']
       end
     end
 

@@ -23,13 +23,13 @@ module FileBot
     def self.auto_detect_adapter
       # Try IRIS first (most common in healthcare)
       if iris_available?
-        Rails.logger.info "FileBot: Auto-detected IRIS database"
+        puts "FileBot: Auto-detected IRIS database" if ENV['FILEBOT_DEBUG']
         Adapters::IRISAdapter.new
       elsif yottadb_available?
-        Rails.logger.info "FileBot: Auto-detected YottaDB"
+        puts "FileBot: Auto-detected YottaDB" if ENV['FILEBOT_DEBUG']
         Adapters::YottaDBAdapter.new
       elsif gtm_available?
-        Rails.logger.info "FileBot: Auto-detected GT.M"
+        puts "FileBot: Auto-detected GT.M" if ENV['FILEBOT_DEBUG']
         Adapters::GTMAdapter.new
       else
         raise "FileBot: No supported MUMPS database detected"
@@ -57,7 +57,7 @@ module FileBot
         test_connection.close if test_connection
         true
       rescue => e
-        Rails.logger.debug "IRIS not available: #{e.message}"
+        puts "IRIS not available: #{e.message}" if ENV['FILEBOT_DEBUG']
         false
       end
     end
@@ -66,14 +66,14 @@ module FileBot
       # Check for YottaDB installation
       system("which ydb > /dev/null 2>&1") ||
       File.exist?("/usr/local/lib/yottadb") ||
-      ENV["ydb_dir"].present?
+      !ENV["ydb_dir"].nil?
     end
 
     def self.gtm_available?
       # Check for GT.M installation
       system("which gtm > /dev/null 2>&1") ||
       File.exist?("/usr/lib/fis-gtm") ||
-      ENV["gtm_dir"].present?
+      !ENV["gtm_dir"].nil?
     end
   end
 end

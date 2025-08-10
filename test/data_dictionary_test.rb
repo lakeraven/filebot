@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require "test_helper"
+require "test/unit"
 
-class DataDictionaryTest < ActiveSupport::TestCase
+class DataDictionaryTest < Test::Unit::TestCase
   def setup
     @iris_connection = mock_iris_connection
     @data_dictionary = DataDictionary.new(@iris_connection)

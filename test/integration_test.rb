@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
-require "test_helper"
+require "test/unit"
 require "java"
 
 # Import IRIS Native API for integration testing
 java_import "com.intersystems.jdbc.IRISConnection"
 java_import "com.intersystems.jdbc.IRISDataSource"
 
-class FileBotIntegrationTest < ActiveSupport::TestCase
+class FileBotIntegrationTest < Test::Unit::TestCase
   def setup
     # Skip integration tests if IRIS is not available
     skip "IRIS database not available" unless iris_available?
@@ -315,7 +315,7 @@ class FileBotIntegrationTest < ActiveSupport::TestCase
       connection.close
       true
     rescue => e
-      Rails.logger.warn "IRIS not available for integration tests: #{e.message}"
+      puts "IRIS not available for integration tests: #{e.message}" if ENV['FILEBOT_DEBUG']
       false
     end
   end
@@ -340,7 +340,7 @@ class FileBotIntegrationTest < ActiveSupport::TestCase
           # KILL ^DPT(dfn), cross-references, etc.
         end
       rescue => e
-        Rails.logger.warn "Failed to cleanup test data: #{e.message}"
+        puts "Failed to cleanup test data: #{e.message}" if ENV['FILEBOT_DEBUG']
       end
     end
   end

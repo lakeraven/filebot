@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require "test_helper"
+require "test/unit"
 
-class FieldDefinitionTest < ActiveSupport::TestCase
+class FieldDefinitionTest < Test::Unit::TestCase
   def setup
     @name_field = FieldDefinition.new(
       name: "PATIENT NAME",

@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require "test_helper"
+require "test/unit"
 
-class HealthcareValidatorTest < ActiveSupport::TestCase
+class HealthcareValidatorTest < Test::Unit::TestCase
   def setup
     @healthcare_validator = HealthcareValidator.new
   end

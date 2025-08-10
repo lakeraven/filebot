@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require "test_helper"
+require "test/unit"
 
-class CrossReferenceManagerTest < ActiveSupport::TestCase
+class CrossReferenceManagerTest < Test::Unit::TestCase
   def setup
     @iris_connection = setup_mock_iris_connection
     @cross_ref_manager = CrossReferenceManager.new(@iris_connection)

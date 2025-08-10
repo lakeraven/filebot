@@ -75,9 +75,9 @@ module FileBot
         java_import "com.intersystems.binding.IRISDatabase"
         java_import "java.util.Properties"
 
-        Rails.logger.info "FileBot: Establishing IRIS Native API connection"
+        puts "FileBot: Establishing IRIS Native API connection" if ENV['FILEBOT_DEBUG']
 
-        # Get credentials from Rails encrypted credentials
+        # Get credentials from environment configuration
         iris_config = get_iris_credentials
 
         # Create JDBC connection with encrypted credentials
@@ -92,7 +92,7 @@ module FileBot
         # Get native database object from JDBC connection
         @iris_native = IRISDatabase.getDatabase(jdbc_connection)
 
-        Rails.logger.info "FileBot: IRIS Native API connection established to #{iris_config[:host]}:#{iris_config[:port]}"
+        puts "FileBot: IRIS Native API connection established to #{iris_config[:host]}:#{iris_config[:port]}" if ENV['FILEBOT_DEBUG']
       end
 
       def get_iris_credentials

@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require "test_helper"
+require "test/unit"
 
-class BusinessRulesEngineTest < ActiveSupport::TestCase
+class BusinessRulesEngineTest < Test::Unit::TestCase
   def setup
     @business_rules = BusinessRulesEngine.new
   end

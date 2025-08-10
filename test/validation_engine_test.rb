@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require "test_helper"
+require "test/unit"
 
-class ValidationEngineTest < ActiveSupport::TestCase
+class ValidationEngineTest < Test::Unit::TestCase
   def setup
     @data_dictionary = setup_mock_data_dictionary
     @validation_engine = ValidationEngine.new(@data_dictionary)

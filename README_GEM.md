@@ -12,7 +12,7 @@ FileBot provides **6.96x performance improvement** over Legacy FileMan while mai
 - 📋 **FHIR R4 serialization capabilities**  
 - 🔌 **Multi-platform MUMPS database support** (IRIS, YottaDB, GT.M)
 - ⚡ **Event sourcing compatible architecture**
-- 📱 **Rails 8 Hotwire integration ready**
+- 📱 **Ruby web integration ready**
 
 ## Installation
 
@@ -52,11 +52,11 @@ lab_result = filebot.lab_result_entry_workflow("123", "CBC", "Normal")
 ### InterSystems IRIS
 
 1. **Install IRIS JAR files** in one of these locations:
-   - `vendor/jars/` (Rails app)
+   - `vendor/jars/` (Ruby app)
    - `/usr/local/lib/intersystems/` (system-wide)
    - `$INTERSYSTEMS_HOME/` (environment variable)
 
-2. **Configure credentials** via Rails credentials or environment variables:
+2. **Configure credentials** via environment variables:
 
 ```bash
 # Environment variables
@@ -68,15 +68,14 @@ export IRIS_PASSWORD=your-password
 ```
 
 ```ruby
-# Rails credentials
-# rails credentials:edit
-mumps:
-  iris:
-    host: your-iris-host.com
-    port: 1972
-    namespace: USER
-    username: _SYSTEM
-    password: secure-password
+# Alternative: Ruby configuration file
+FileBot.configure do |config|
+  config.iris_host = "your-iris-host.com"
+  config.iris_port = 1972
+  config.iris_namespace = "USER"
+  config.iris_username = "_SYSTEM"
+  config.iris_password = "secure-password"
+end
 ```
 
 ### YottaDB & GT.M (Future Support)
@@ -230,7 +229,7 @@ gem install filebot-1.0.0-java.gem
 FileBot handles sensitive healthcare data. Please:
 
 - Never commit credentials to version control
-- Use Rails credentials or secure environment variables
+- Use environment variables or secure configuration files
 - Enable healthcare audit logging in production
 - Follow HIPAA compliance requirements
 

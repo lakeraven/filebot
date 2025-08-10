@@ -21,7 +21,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
   - Discharge summary workflow
 - FHIR R4 serialization capabilities for healthcare interoperability
 - Multi-platform MUMPS database support architecture (IRIS ready, YottaDB/GT.M planned)
-- Rails credentials integration for production-ready security
+- environment variables integration for production-ready security
 - Portable JAR discovery across multiple deployment environments
 - Comprehensive deployment support:
   - Docker containerization
@@ -43,7 +43,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Overall Average: **6.36x performance improvement**
 
 ### Security
-- Encrypted Rails credentials support
+- Encrypted environment variables support
 - Environment variable fallback configuration
 - Healthcare audit logging capabilities
 - HIPAA compliance considerations

@@ -1,8 +1,8 @@
 # frozen_string_literal: true
 
-require "test_helper"
+require "test/unit"
 
-class FileBotCompatibilityTest < ActiveSupport::TestCase
+class FileBotCompatibilityTest < Test::Unit::TestCase
   def setup
     # Mock FileBot instance
     @filebot_mock = Minitest::Mock.new

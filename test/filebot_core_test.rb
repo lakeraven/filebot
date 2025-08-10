@@ -1,13 +1,13 @@
 # frozen_string_literal: true
 
-require "test_helper"
+require "test/unit"
 require "java"
 
 # Import IRIS Native API
 java_import "com.intersystems.jdbc.IRISConnection"
 java_import "com.intersystems.jdbc.IRISDataSource"
 
-class FileBotCoreTest < ActiveSupport::TestCase
+class FileBotCoreTest < Test::Unit::TestCase
   def setup
     @filebot = FileBot.instance
     @test_patient_data = {

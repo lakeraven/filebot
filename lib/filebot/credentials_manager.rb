@@ -35,14 +35,8 @@ module FileBot
       private
 
       def load_config(database_type)
-        # Try Rails credentials first
-        if Rails.application.credentials.mumps&.public_send(database_type)
-          rails_config = Rails.application.credentials.mumps.public_send(database_type)
-          normalize_config(rails_config, database_type)
-        else
-          # Fallback to environment variables
-          load_from_environment(database_type)
-        end
+        # Load from environment variables
+        load_from_environment(database_type)
       end
 
       def normalize_config(config, database_type)
@@ -102,26 +96,14 @@ module FileBot
       end
 
       def load_filebot_config
-        # Try Rails credentials first
-        if Rails.application.credentials.filebot
-          config = Rails.application.credentials.filebot
-          {
-            default_adapter: (config[:default_adapter] || :iris).to_sym,
-            performance_logging: config[:performance_logging] != false,
-            healthcare_audit_enabled: config[:healthcare_audit_enabled] != false,
-            connection_pool_size: config[:connection_pool_size] || 5,
-            connection_timeout: config[:connection_timeout] || 30
-          }
-        else
-          # Environment variable fallbacks
-          {
-            default_adapter: (ENV.fetch("FILEBOT_DEFAULT_ADAPTER", "iris")).to_sym,
-            performance_logging: ENV.fetch("FILEBOT_PERFORMANCE_LOGGING", "true") == "true",
-            healthcare_audit_enabled: ENV.fetch("FILEBOT_HEALTHCARE_AUDIT", "true") == "true",
-            connection_pool_size: ENV.fetch("FILEBOT_CONNECTION_POOL_SIZE", "5").to_i,
-            connection_timeout: ENV.fetch("FILEBOT_CONNECTION_TIMEOUT", "30").to_i
-          }
-        end
+        # Load from environment variables
+        {
+          default_adapter: (ENV.fetch("FILEBOT_DEFAULT_ADAPTER", "iris")).to_sym,
+          performance_logging: ENV.fetch("FILEBOT_PERFORMANCE_LOGGING", "true") == "true",
+          healthcare_audit_enabled: ENV.fetch("FILEBOT_HEALTHCARE_AUDIT", "true") == "true",
+          connection_pool_size: ENV.fetch("FILEBOT_CONNECTION_POOL_SIZE", "5").to_i,
+          connection_timeout: ENV.fetch("FILEBOT_CONNECTION_TIMEOUT", "30").to_i
+        }
       end
     end
   end
