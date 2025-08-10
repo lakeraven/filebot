@@ -22,12 +22,7 @@
       "ssl": false,
       "connection_pool_size": 5,
       "connection_timeout": 30,
-      "jarPaths": [
-        "vendor/jars",
-        "lib/jars",
-        "/usr/local/lib/intersystems"
-      ],
-      "odbc_driver": "InterSystems IRIS ODBC35",
+      "native_api_jar": "/usr/local/lib/intersystems/intersystems-iris-native.jar",
       "rest_api_url": "http://localhost:52773/api/atelier/"
     },
     "yottadb": {

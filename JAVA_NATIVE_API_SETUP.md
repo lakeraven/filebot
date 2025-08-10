@@ -2,7 +2,7 @@
 
 ## InterSystems IRIS Native API for Java
 
-FileBot's Java implementation now uses the **InterSystems Native API for Java** for optimal performance, providing direct access to IRIS globals without JDBC/SQL overhead.
+FileBot's Java implementation uses the **InterSystems Native API for Java** for optimal performance, providing direct access to IRIS globals without any JDBC/SQL dependencies or overhead.
 
 ## Installation
 
@@ -67,24 +67,7 @@ public class TestNativeAPI {
 
 ### Alternative Connection Types
 
-#### JDBC Connection (Legacy)
-```json
-{
-  "adapters": {
-    "iris": {
-      "connection_type": "jdbc",
-      "host": "localhost",
-      "port": 1972,
-      "namespace": "USER",
-      "username": "_SYSTEM", 
-      "password": "your_password",
-      "jarPaths": [
-        "/path/to/intersystems-jdbc.jar"
-      ]
-    }
-  }
-}
-```
+For special use cases where the Native API cannot be used directly, REST API is available (though with reduced performance).
 
 ## Usage Example
 
@@ -149,8 +132,8 @@ public class FileBotExample {
 
 ### Native API Advantages
 
-1. **Direct Global Access**: No SQL translation overhead
-2. **Optimal Network Protocol**: Binary protocol vs. HTTP/JDBC
+1. **Direct Global Access**: No SQL/JDBC translation overhead
+2. **Optimal Network Protocol**: Binary protocol vs. HTTP/REST
 3. **Connection Pooling**: Efficient connection reuse
 4. **Transaction Support**: Full IRIS transaction capabilities
 5. **Lock Management**: Native IRIS locking support
@@ -160,7 +143,6 @@ public class FileBotExample {
 | Connection Type | Latency | Throughput | Memory |
 |----------------|---------|------------|---------|
 | Native API     | ~0.5ms  | 15,000 ops/sec | Low |
-| JDBC           | ~2ms    | 8,000 ops/sec  | Medium |
 | REST API       | ~10ms   | 1,000 ops/sec  | High |
 
 ## Advanced Features
@@ -420,17 +402,17 @@ if (connectionResult.isSuccess()) {
 </project>
 ```
 
-## Migration from JDBC
+## Migration Guide
 
-To migrate existing JDBC code:
+To migrate from other connection types:
 
-1. **Update dependencies**: Replace JDBC JAR with Native API JAR
+1. **Update dependencies**: Use Native API JAR (`intersystems-iris-native`)
 2. **Update configuration**: Change `connection_type` to `"native"`
-3. **Remove JDBC imports**: Use Native API imports instead
-4. **Update connection code**: Use `IRISNativeAdapter` instead of JDBC drivers
+3. **Update imports**: Use Native API classes instead of JDBC
+4. **Update connection code**: Use `IRISNativeAdapter`
 5. **Test thoroughly**: Verify all operations work correctly
 
-The Native API provides the same interface as JDBC adapters, so application code changes should be minimal while gaining significant performance improvements.
+The Native API provides consistent interfaces, so application code changes are minimal while gaining significant performance improvements.
 
 ## Deployment
 

@@ -18,5 +18,5 @@ end
 # Platform specific dependencies
 platform :jruby do
   # JRuby platform is required for Java Native API integration
-  gem "jdbc-postgres" # Example for PostgreSQL if needed
+  # Native API JAR files are auto-detected by JRuby
 end

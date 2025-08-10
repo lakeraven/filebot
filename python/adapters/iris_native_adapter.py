@@ -2,7 +2,7 @@
 InterSystems IRIS Native API Adapter for Python
 
 This adapter uses the InterSystems Native API for Python to provide direct,
-high-performance access to IRIS globals without ODBC/SQL overhead.
+high-performance access to IRIS globals without JDBC/ODBC/SQL overhead.
 
 Installation:
     pip install intersystems-iris-native
@@ -31,7 +31,7 @@ class IRISNativeAdapter(BaseAdapter):
     InterSystems IRIS Native API adapter for high-performance global access
     
     This adapter provides direct access to IRIS globals using the Native API,
-    offering optimal performance without JDBC/ODBC overhead.
+    offering optimal performance without JDBC/ODBC/SQL overhead.
     """
     
     def __init__(self, config: Dict[str, Any]):
@@ -243,20 +243,14 @@ class IRISNativeAdapter(BaseAdapter):
         Returns:
             Execution result
         """
-        if not self.connected or not self.connection:
+        if not self.connected or not self.iris_native:
             raise RuntimeError("Adapter not connected")
         
         try:
-            # Create a callable statement for MUMPS execution
-            statement = self.connection.createIrisCallable("{? = CALL %SYSTEM.SQL.Execute(?)}")
-            statement.registerOutParameter(1, iris.IRIS_VARCHAR)
-            statement.setString(2, code)
-            
-            result_set = statement.execute()
-            result = statement.getString(1) if result_set else ""
-            
-            statement.close()
-            return result
+            # Execute MUMPS code using Native API
+            # This uses the IRIS Native API's direct code execution
+            result = self.iris_native.function(code)
+            return result if result is not None else ""
             
         except Exception as e:
             self.logger.error(f"Error executing MUMPS code: {e}")
@@ -489,6 +483,6 @@ if NATIVE_API_AVAILABLE:
         IRISNativeAdapter,
         "InterSystems IRIS Native API adapter for high-performance global access",
         "1.0.0",
-        priority=100,  # Higher priority than ODBC/REST
+        priority=100,  # Highest priority for direct Native API access
         auto_detect=True
     )

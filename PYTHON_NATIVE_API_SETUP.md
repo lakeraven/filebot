@@ -2,7 +2,7 @@
 
 ## InterSystems IRIS Native API for Python
 
-FileBot's Python implementation now uses the **InterSystems Native API** for optimal performance, providing direct access to IRIS globals without JDBC/SQL/ODBC overhead.
+FileBot's Python implementation uses the **InterSystems Native API** for optimal performance, providing direct access to IRIS globals without any JDBC/SQL/ODBC dependencies or overhead.
 
 ## Installation
 
@@ -43,42 +43,7 @@ print(f"IRIS Native API version: {iris.__version__}")
 
 ### Alternative Connection Types
 
-#### JDBC Connection (Requires JARs)
-```json
-{
-  "adapters": {
-    "iris": {
-      "connection_type": "jdbc",
-      "host": "localhost",
-      "port": 1972,
-      "namespace": "USER",
-      "username": "_SYSTEM", 
-      "password": "your_password",
-      "jarPaths": [
-        "/path/to/intersystems-jdbc.jar",
-        "/path/to/intersystems-utils.jar"
-      ]
-    }
-  }
-}
-```
-
-#### ODBC Connection
-```json
-{
-  "adapters": {
-    "iris": {
-      "connection_type": "odbc",
-      "host": "localhost",
-      "port": 1972,
-      "namespace": "USER",
-      "username": "_SYSTEM",
-      "password": "your_password", 
-      "odbc_driver": "InterSystems IRIS ODBC35"
-    }
-  }
-}
-```
+For special use cases where the Native API cannot be used directly:
 
 #### REST API Connection
 ```json
@@ -150,8 +115,8 @@ asyncio.run(main())
 
 ### Native API Advantages
 
-1. **Direct Global Access**: No SQL translation overhead
-2. **Optimal Network Protocol**: Binary protocol vs. HTTP/ODBC
+1. **Direct Global Access**: No SQL/ODBC translation overhead
+2. **Optimal Network Protocol**: Binary protocol vs. HTTP/REST
 3. **Connection Pooling**: Efficient connection reuse
 4. **Transaction Support**: Full IRIS transaction capabilities
 5. **Lock Management**: Native IRIS locking support
@@ -161,8 +126,6 @@ asyncio.run(main())
 | Connection Type | Latency | Throughput | Memory |
 |----------------|---------|------------|---------|
 | Native API     | ~1ms    | 10,000 ops/sec | Low |
-| JDBC (JAR)     | ~2ms    | 8,000 ops/sec  | Medium |
-| ODBC           | ~5ms    | 5,000 ops/sec  | Medium |
 | REST API       | ~10ms   | 1,000 ops/sec  | High |
 
 ## Advanced Features
@@ -320,14 +283,14 @@ else:
     print(f"Connection failed: {connection_result.message}")
 ```
 
-## Migration from ODBC/JDBC
+## Migration Guide
 
-To migrate existing code:
+To migrate from other connection types:
 
 1. **Update configuration**: Change `connection_type` to `"native"`
 2. **Install Native API**: `pip install intersystems-iris-native`
-3. **Remove JAR dependencies**: No longer needed for Python
-4. **Update imports**: Use `IRISNativeAdapter` instead of ODBC adapters
+3. **Remove dependencies**: No JAR files or ODBC drivers needed
+4. **Update imports**: Use `IRISNativeAdapter`
 5. **Test thoroughly**: Verify all operations work correctly
 
-The Native API provides the same interface as other adapters, so application code changes should be minimal.
+The Native API provides the same interface, so application code changes are minimal while gaining significant performance improvements.

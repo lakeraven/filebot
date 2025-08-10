@@ -51,12 +51,12 @@ lab_result = filebot.lab_result_entry_workflow("123", "CBC", "Normal")
 
 ### InterSystems IRIS
 
-**⚖️ Legal Notice**: InterSystems IRIS JAR files (`intersystems-binding-*.jar`, `intersystems-jdbc-*.jar`) are proprietary software components owned by InterSystems Corporation. These files must be obtained separately from InterSystems and are subject to InterSystems' licensing terms. FileBot does not distribute or include these JAR files.
+**⚖️ Legal Notice**: InterSystems IRIS Native API components are proprietary software owned by InterSystems Corporation. These components must be obtained separately from InterSystems and are subject to InterSystems' licensing terms. FileBot uses the officially published Native API packages available through standard package managers.
 
-1. **Install IRIS JAR files** in one of these locations:
-   - `vendor/jars/` (Ruby app)
-   - `/usr/local/lib/intersystems/` (system-wide)
-   - `$INTERSYSTEMS_HOME/` (environment variable)
+1. **Install IRIS Native API components**:
+   - **Python**: `pip install intersystems-iris-native`
+   - **Java**: Add `intersystems-iris-native` JAR to classpath  
+   - **Ruby**: JAR auto-detection via JRuby integration
 
 2. **Configure credentials** via environment variables:
 
@@ -276,7 +276,7 @@ FileBot focuses on core database operations and healthcare workflows. The follow
 | FileMan Feature | Status | Alternative |
 |-----------------|--------|-------------|
 | Print Templates (`^DIPT`) | ❌ Not Supported | Use modern templating engines (Jinja2, Thymeleaf, ERB) |
-| Sort Templates (`^DIBT`) | ❌ Not Supported | Use native sorting methods or SQL ORDER BY |
+| Sort Templates (`^DIBT`) | ❌ Not Supported | Use native sorting methods or application-level sorting |
 | `D EN1^DIP` (Print entries) | ❌ Not Supported | Custom reporting with modern web frameworks |
 | Mail merge templates | ❌ Not Supported | Use email libraries with templates |
 

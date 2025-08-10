@@ -78,8 +78,8 @@
           "properties": {
             "connection_type": {
               "type": "string",
-              "description": "Connection type: native (Python Native API), jdbc (JAR files), odbc, or rest",
-              "enum": ["native", "jdbc", "odbc", "rest"],
+              "description": "Connection type: native (Native API) or rest (HTTP API)",
+              "enum": ["native", "rest"],
               "default": "native"
             },
             "host": {
@@ -112,10 +112,6 @@
               "description": "IRIS password",
               "minLength": 1
             },
-            "connectionString": {
-              "type": "string",
-              "description": "Custom JDBC connection string (overrides host/port/namespace for JDBC connections)"
-            },
             "ssl": {
               "type": "boolean",
               "description": "Enable SSL/TLS connection",
@@ -125,18 +121,9 @@
               "type": "string",
               "description": "SSL certificate file path"
             },
-            "jarPaths": {
-              "type": "array",
-              "description": "Paths to IRIS JAR files (for JDBC connections)",
-              "items": {
-                "type": "string"
-              },
-              "default": ["vendor/jars", "lib/jars"]
-            },
-            "odbc_driver": {
+            "native_api_jar": {
               "type": "string",
-              "description": "ODBC driver name (for ODBC connections)",
-              "default": "InterSystems IRIS ODBC35"
+              "description": "Path to InterSystems Native API JAR file (optional, auto-detected if not specified)"
             },
             "rest_api_url": {
               "type": "string",
