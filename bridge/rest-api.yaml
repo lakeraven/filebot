@@ -1,0 +1,1225 @@
+openapi: 3.0.3
+info:
+  title: FileBot Healthcare MUMPS API
+  description: |
+    Cross-language REST API bridge for FileBot healthcare operations.
+    Provides 6.96x performance improvement over Legacy FileMan while maintaining
+    full MUMPS/VistA compatibility across Ruby, Java, and Python implementations.
+  version: 1.0.0
+  contact:
+    name: FileBot Support
+    url: https://github.com/lakeraven/filebot
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080/api/v1
+    description: Local development server
+  - url: https://filebot.hospital.com/api/v1
+    description: Production server
+
+paths:
+  # ==================== Patient Operations ====================
+  
+  /patients/{dfn}:
+    get:
+      summary: Get patient demographics
+      description: Retrieve patient demographics by DFN (Data File Number)
+      operationId: getPatientDemographics
+      parameters:
+        - name: dfn
+          in: path
+          required: true
+          schema:
+            type: string
+          description: Patient DFN
+        - name: include_metadata
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Include metadata in response
+      responses:
+        '200':
+          description: Patient demographics
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Patient'
+        '404':
+          description: Patient not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      tags:
+        - Patients
+  
+  /patients/search:
+    get:
+      summary: Search patients by name
+      description: Search for patients using name pattern matching
+      operationId: searchPatientsByName
+      parameters:
+        - name: name_pattern
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Name pattern (e.g., "SMITH" or "SMITH,J")
+        - name: max_results
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+          description: Maximum number of results
+        - name: exact_match
+          in: query
+          schema:
+            type: boolean
+            default: false
+          description: Require exact match
+      responses:
+        '200':
+          description: List of matching patients
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientList'
+      tags:
+        - Patients
+  
+  /patients:
+    post:
+      summary: Create new patient
+      description: Create a new patient record
+      operationId: createPatient
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/CreatePatientRequest'
+      responses:
+        '201':
+          description: Patient created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/CreateResult'
+        '400':
+          description: Invalid patient data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResult'
+        '500':
+          description: Server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Error'
+      tags:
+        - Patients
+  
+  /patients/batch:
+    post:
+      summary: Get multiple patients
+      description: Retrieve multiple patients by DFN list
+      operationId: getPatientsBatch
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/BatchRequest'
+      responses:
+        '200':
+          description: List of patients
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PatientList'
+      tags:
+        - Patients
+  
+  /patients/validate:
+    post:
+      summary: Validate patient data
+      description: Validate patient data before creation/update
+      operationId: validatePatient
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/PatientData'
+      responses:
+        '200':
+          description: Validation result
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ValidationResult'
+      tags:
+        - Patients
+  
+  # ==================== FileMan Operations ====================
+  
+  /files/{file_number}/entries:
+    get:
+      summary: Find or list entries
+      description: Find entries matching criteria or list entries (FIND^DIC/LIST^DIC equivalent)
+      operationId: findEntries
+      parameters:
+        - name: file_number
+          in: path
+          required: true
+          schema:
+            type: integer
+          description: VistA file number
+        - name: search_value
+          in: query
+          schema:
+            type: string
+          description: Value to search for (required for find)
+        - name: search_field
+          in: query
+          schema:
+            type: string
+            default: ".01"
+          description: Field to search
+        - name: start_from
+          in: query
+          schema:
+            type: string
+          description: Starting point for listing
+        - name: fields
+          in: query
+          schema:
+            type: string
+            default: ".01"
+          description: Fields to retrieve
+        - name: max_results
+          in: query
+          schema:
+            type: integer
+            default: 20
+            minimum: 1
+            maximum: 100
+        - name: flags
+          in: query
+          schema:
+            type: string
+          description: Search flags
+        - name: screen
+          in: query
+          schema:
+            type: string
+          description: Screening logic
+      responses:
+        '200':
+          description: Search/list results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/FindResult'
+      tags:
+        - FileMan
+  
+  /files/{file_number}/entries/{ien}:
+    get:
+      summary: Get entry data
+      description: Get entry data with formatting (GETS^DIQ equivalent)
+      operationId: getsEntry
+      parameters:
+        - name: file_number
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: ien
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: fields
+          in: query
+          required: true
+          schema:
+            type: string
+          description: Fields to retrieve
+        - name: flags
+          in: query
+          schema:
+            type: string
+            default: "EI"
+          description: Output flags (I=internal, E=external, EI=both)
+      responses:
+        '200':
+          description: Entry data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/EntryData'
+      tags:
+        - FileMan
+    
+    put:
+      summary: Update entry
+      description: Update entry data (UPDATE^DIE equivalent)
+      operationId: updateEntry
+      parameters:
+        - name: file_number
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: ien
+          in: path
+          required: true
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/UpdateEntryRequest'
+      responses:
+        '200':
+          description: Update successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResult'
+      tags:
+        - FileMan
+    
+    delete:
+      summary: Delete entry
+      description: Delete an entry (DELETE^DIC equivalent)
+      operationId: deleteEntry
+      parameters:
+        - name: file_number
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: ien
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Delete successful
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResult'
+      tags:
+        - FileMan
+  
+  /files/{file_number}/entries/{ien}/lock:
+    post:
+      summary: Lock entry
+      description: Lock an entry for editing
+      operationId: lockEntry
+      parameters:
+        - name: file_number
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: ien
+          in: path
+          required: true
+          schema:
+            type: string
+        - name: timeout
+          in: query
+          schema:
+            type: integer
+            default: 30
+      responses:
+        '200':
+          description: Lock acquired
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResult'
+      tags:
+        - FileMan
+    
+    delete:
+      summary: Unlock entry
+      description: Release lock on entry
+      operationId: unlockEntry
+      parameters:
+        - name: file_number
+          in: path
+          required: true
+          schema:
+            type: integer
+        - name: ien
+          in: path
+          required: true
+          schema:
+            type: string
+      responses:
+        '200':
+          description: Lock released
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResult'
+      tags:
+        - FileMan
+  
+  # ==================== Healthcare Workflows ====================
+  
+  /workflows/medication-ordering:
+    post:
+      summary: Execute medication ordering workflow
+      description: Process medication order with validation and clinical decision support
+      operationId: medicationOrderingWorkflow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/MedicationWorkflowRequest'
+      responses:
+        '200':
+          description: Workflow completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowResult'
+      tags:
+        - Healthcare Workflows
+  
+  /workflows/lab-results:
+    post:
+      summary: Execute lab result entry workflow
+      description: Process lab results with validation and critical value alerts
+      operationId: labResultEntryWorkflow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/LabWorkflowRequest'
+      responses:
+        '200':
+          description: Workflow completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowResult'
+      tags:
+        - Healthcare Workflows
+  
+  /workflows/clinical-documentation:
+    post:
+      summary: Execute clinical documentation workflow
+      description: Process clinical documentation with templates and validation
+      operationId: clinicalDocumentationWorkflow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/DocumentWorkflowRequest'
+      responses:
+        '200':
+          description: Workflow completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowResult'
+      tags:
+        - Healthcare Workflows
+  
+  /workflows/discharge-summary:
+    post:
+      summary: Execute discharge summary workflow
+      description: Generate discharge summary with automated data collection
+      operationId: dischargeSummaryWorkflow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SummaryWorkflowRequest'
+      responses:
+        '200':
+          description: Workflow completed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WorkflowResult'
+      tags:
+        - Healthcare Workflows
+  
+  # ==================== System Operations ====================
+  
+  /system/adapters:
+    get:
+      summary: Get available adapters
+      description: List all available MUMPS database adapters
+      operationId: getAvailableAdapters
+      responses:
+        '200':
+          description: List of available adapters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdapterList'
+      tags:
+        - System
+  
+  /system/adapter:
+    get:
+      summary: Get current adapter info
+      description: Get information about the currently active adapter
+      operationId: getAdapterInfo
+      responses:
+        '200':
+          description: Current adapter information
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AdapterInfo'
+      tags:
+        - System
+    
+    put:
+      summary: Switch adapter
+      description: Switch to a different MUMPS database adapter
+      operationId: switchAdapter
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SwitchAdapterRequest'
+      responses:
+        '200':
+          description: Adapter switched successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/OperationResult'
+      tags:
+        - System
+  
+  /system/health:
+    get:
+      summary: Health check
+      description: Check system health and database connectivity
+      operationId: healthCheck
+      responses:
+        '200':
+          description: System is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthStatus'
+      tags:
+        - System
+  
+  /system/connection/test:
+    post:
+      summary: Test connection
+      description: Test database connectivity and performance
+      operationId: testConnection
+      responses:
+        '200':
+          description: Connection test results
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ConnectionResult'
+      tags:
+        - System
+
+components:
+  schemas:
+    # ==================== Core Models ====================
+    
+    Patient:
+      type: object
+      properties:
+        dfn:
+          type: string
+          description: Patient DFN (Data File Number)
+        name:
+          type: string
+          description: Patient name (LAST,FIRST format)
+        sex:
+          type: string
+          enum: [M, F]
+          description: Patient sex
+        dob:
+          type: string
+          format: date
+          description: Date of birth
+        ssn:
+          type: string
+          description: Social Security Number
+        address:
+          $ref: '#/components/schemas/Address'
+        metadata:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - dfn
+        - name
+        - sex
+        - dob
+    
+    Address:
+      type: object
+      properties:
+        street:
+          type: string
+        city:
+          type: string
+        state:
+          type: string
+        zip:
+          type: string
+        country:
+          type: string
+    
+    PatientList:
+      type: object
+      properties:
+        patients:
+          type: array
+          items:
+            $ref: '#/components/schemas/Patient'
+        total_count:
+          type: integer
+        has_more:
+          type: boolean
+        continuation_token:
+          type: string
+    
+    CreateResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        dfn:
+          type: string
+        message:
+          type: string
+        error_code:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - success
+    
+    ValidationResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        errors:
+          type: array
+          items:
+            type: string
+        warnings:
+          type: array
+          items:
+            type: string
+        field_errors:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+        - success
+    
+    OperationResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        error_code:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - success
+    
+    FindResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/EntryResult'
+        count:
+          type: integer
+        has_more:
+          type: boolean
+        continuation_token:
+          type: string
+        error_code:
+          type: string
+        message:
+          type: string
+      required:
+        - success
+        - count
+    
+    EntryResult:
+      type: object
+      properties:
+        ien:
+          type: string
+        fields:
+          type: object
+          additionalProperties:
+            type: string
+        display_value:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+      required:
+        - ien
+    
+    EntryData:
+      type: object
+      properties:
+        success:
+          type: boolean
+        ien:
+          type: string
+        data:
+          type: object
+          additionalProperties:
+            type: string
+        formatted_data:
+          type: object
+          additionalProperties:
+            type: string
+        error_code:
+          type: string
+        message:
+          type: string
+      required:
+        - success
+    
+    WorkflowResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        workflow_id:
+          type: string
+        workflow_type:
+          type: string
+        data:
+          type: object
+          additionalProperties: true
+        steps:
+          type: array
+          items:
+            $ref: '#/components/schemas/WorkflowStep'
+        error_code:
+          type: string
+        message:
+          type: string
+        completed_at:
+          type: string
+          format: date-time
+      required:
+        - success
+    
+    WorkflowStep:
+      type: object
+      properties:
+        step_id:
+          type: string
+        step_name:
+          type: string
+        status:
+          type: string
+          enum: [pending, in_progress, completed, failed]
+        data:
+          type: object
+          additionalProperties: true
+        started_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+      required:
+        - step_id
+        - step_name
+        - status
+    
+    # ==================== Request Models ====================
+    
+    CreatePatientRequest:
+      type: object
+      properties:
+        patient_data:
+          type: object
+          additionalProperties:
+            type: string
+        validate_only:
+          type: boolean
+          default: false
+        created_by:
+          type: string
+      required:
+        - patient_data
+    
+    BatchRequest:
+      type: object
+      properties:
+        dfn_list:
+          type: array
+          items:
+            type: string
+        fields:
+          type: array
+          items:
+            type: string
+        include_metadata:
+          type: boolean
+          default: false
+      required:
+        - dfn_list
+    
+    PatientData:
+      type: object
+      properties:
+        "0.01":
+          type: string
+          description: Name (LAST,FIRST)
+        "0.02":
+          type: string
+          description: Sex (M/F)
+        "0.03":
+          type: string
+          description: Date of birth
+        "0.09":
+          type: string
+          description: Social Security Number
+      additionalProperties:
+        type: string
+    
+    UpdateEntryRequest:
+      type: object
+      properties:
+        field_data:
+          type: object
+          additionalProperties:
+            type: string
+        updated_by:
+          type: string
+        reason:
+          type: string
+      required:
+        - field_data
+    
+    # ==================== Healthcare Workflow Models ====================
+    
+    MedicationWorkflowRequest:
+      type: object
+      properties:
+        patient_id:
+          type: string
+        medication:
+          $ref: '#/components/schemas/MedicationData'
+        provider_id:
+          type: string
+        location_id:
+          type: string
+      required:
+        - patient_id
+        - medication
+        - provider_id
+    
+    MedicationData:
+      type: object
+      properties:
+        medication_name:
+          type: string
+        dose:
+          type: string
+        route:
+          type: string
+        frequency:
+          type: string
+        duration:
+          type: string
+        instructions:
+          type: string
+        allergies_checked:
+          type: array
+          items:
+            type: string
+        interactions_checked:
+          type: array
+          items:
+            type: string
+      required:
+        - medication_name
+        - dose
+        - route
+        - frequency
+    
+    LabWorkflowRequest:
+      type: object
+      properties:
+        patient_id:
+          type: string
+        lab_data:
+          $ref: '#/components/schemas/LabData'
+        provider_id:
+          type: string
+        lab_id:
+          type: string
+      required:
+        - patient_id
+        - lab_data
+    
+    LabData:
+      type: object
+      properties:
+        test_name:
+          type: string
+        result_value:
+          type: string
+        unit:
+          type: string
+        reference_range:
+          type: string
+        status:
+          type: string
+          enum: [preliminary, final, corrected]
+        collected_at:
+          type: string
+          format: date-time
+        resulted_at:
+          type: string
+          format: date-time
+      required:
+        - test_name
+        - result_value
+        - status
+    
+    DocumentWorkflowRequest:
+      type: object
+      properties:
+        patient_id:
+          type: string
+        document:
+          $ref: '#/components/schemas/DocumentData'
+        provider_id:
+          type: string
+        encounter_id:
+          type: string
+      required:
+        - patient_id
+        - document
+        - provider_id
+    
+    DocumentData:
+      type: object
+      properties:
+        document_type:
+          type: string
+        title:
+          type: string
+        content:
+          type: string
+        status:
+          type: string
+          enum: [draft, completed, amended, signed]
+        attachments:
+          type: array
+          items:
+            type: string
+        authored_at:
+          type: string
+          format: date-time
+      required:
+        - document_type
+        - title
+        - content
+        - status
+    
+    SummaryWorkflowRequest:
+      type: object
+      properties:
+        patient_id:
+          type: string
+        summary:
+          $ref: '#/components/schemas/SummaryData'
+        provider_id:
+          type: string
+        encounter_id:
+          type: string
+      required:
+        - patient_id
+        - summary
+        - provider_id
+    
+    SummaryData:
+      type: object
+      properties:
+        admission_date:
+          type: string
+          format: date
+        discharge_date:
+          type: string
+          format: date
+        discharge_disposition:
+          type: string
+        diagnoses:
+          type: array
+          items:
+            type: string
+        procedures:
+          type: array
+          items:
+            type: string
+        medications:
+          type: array
+          items:
+            type: string
+        summary_text:
+          type: string
+        follow_up_instructions:
+          type: array
+          items:
+            type: string
+      required:
+        - admission_date
+        - discharge_date
+        - discharge_disposition
+    
+    # ==================== System Models ====================
+    
+    AdapterInfo:
+      type: object
+      properties:
+        type:
+          type: string
+        version:
+          type: string
+        database_version:
+          type: string
+        capabilities:
+          $ref: '#/components/schemas/Capabilities'
+        connected:
+          type: boolean
+        connection_status:
+          $ref: '#/components/schemas/ConnectionStatus'
+        metadata:
+          type: object
+          additionalProperties: true
+      required:
+        - type
+        - version
+        - connected
+    
+    Capabilities:
+      type: object
+      properties:
+        transactions:
+          type: boolean
+        locking:
+          type: boolean
+        mumps_execution:
+          type: boolean
+        concurrent_access:
+          type: boolean
+        cross_references:
+          type: boolean
+        unicode_support:
+          type: boolean
+    
+    ConnectionStatus:
+      type: object
+      properties:
+        connected:
+          type: boolean
+        status_message:
+          type: string
+        last_check:
+          type: string
+          format: date-time
+        connection_pool_size:
+          type: integer
+        active_connections:
+          type: integer
+    
+    ConnectionResult:
+      type: object
+      properties:
+        success:
+          type: boolean
+        message:
+          type: string
+        latency_ms:
+          type: integer
+        details:
+          type: object
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - success
+        - message
+    
+    AdapterList:
+      type: object
+      properties:
+        adapters:
+          type: array
+          items:
+            $ref: '#/components/schemas/AdapterSummary'
+    
+    AdapterSummary:
+      type: object
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        version:
+          type: string
+        priority:
+          type: integer
+        available:
+          type: boolean
+        auto_detect:
+          type: boolean
+      required:
+        - name
+        - description
+        - version
+        - available
+    
+    SwitchAdapterRequest:
+      type: object
+      properties:
+        adapter_type:
+          type: string
+        config:
+          type: object
+          additionalProperties: true
+      required:
+        - adapter_type
+    
+    HealthStatus:
+      type: object
+      properties:
+        status:
+          type: string
+          enum: [healthy, degraded, unhealthy]
+        timestamp:
+          type: string
+          format: date-time
+        version:
+          type: string
+        adapter:
+          $ref: '#/components/schemas/AdapterInfo'
+        metrics:
+          type: object
+          properties:
+            uptime_seconds:
+              type: integer
+            total_requests:
+              type: integer
+            error_rate:
+              type: number
+            average_latency_ms:
+              type: number
+      required:
+        - status
+        - timestamp
+    
+    Error:
+      type: object
+      properties:
+        error_code:
+          type: string
+        message:
+          type: string
+        details:
+          type: object
+          additionalProperties: true
+        timestamp:
+          type: string
+          format: date-time
+      required:
+        - error_code
+        - message
+
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+    apiKey:
+      type: apiKey
+      in: header
+      name: X-API-Key
+
+security:
+  - bearerAuth: []
+  - apiKey: []
+
+tags:
+  - name: Patients
+    description: Patient demographic operations
+  - name: FileMan
+    description: Core FileMan database operations
+  - name: Healthcare Workflows
+    description: Healthcare-specific workflow operations
+  - name: System
+    description: System management and adapter operations

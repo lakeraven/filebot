@@ -1,0 +1,97 @@
+{
+  "$schema": "./filebot-config.schema.json",
+  "filebot": {
+    "version": "1.0.0",
+    "language": "auto",
+    "defaultAdapter": "iris",
+    "performanceLogging": true,
+    "healthcareAuditEnabled": true,
+    "connectionPoolSize": 5,
+    "connectionTimeout": 30,
+    "maxRetryAttempts": 3,
+    "retryBackoffMs": 1000
+  },
+  "adapters": {
+    "iris": {
+      "connection_type": "native",
+      "host": "localhost",
+      "port": 1972,
+      "namespace": "USER",
+      "username": "_SYSTEM",
+      "password": "password",
+      "ssl": false,
+      "connection_pool_size": 5,
+      "connection_timeout": 30,
+      "jarPaths": [
+        "vendor/jars",
+        "lib/jars",
+        "/usr/local/lib/intersystems"
+      ],
+      "odbc_driver": "InterSystems IRIS ODBC35",
+      "rest_api_url": "http://localhost:52773/api/atelier/"
+    },
+    "yottadb": {
+      "ydbDir": "/opt/yottadb",
+      "ydbRel": "r134",
+      "ydbGblDir": "/opt/yottadb/globals",
+      "host": "localhost",
+      "port": 9080,
+      "user": "ydbuser"
+    },
+    "gtm": {
+      "gtmDir": "/usr/lib/fis-gtm",
+      "gtmDist": "/usr/lib/fis-gtm/V7.0-000_x86_64",
+      "gtmGblDir": "/opt/gtm/globals",
+      "host": "localhost",
+      "port": 9081,
+      "user": "gtmuser"
+    }
+  },
+  "bridge": {
+    "enabled": false,
+    "type": "grpc",
+    "host": "localhost",
+    "port": 9090,
+    "maxConnections": 50,
+    "authentication": {
+      "enabled": false,
+      "method": "token"
+    }
+  },
+  "healthcare": {
+    "hipaaCompliance": true,
+    "auditLogPath": "/var/log/filebot/healthcare-audit.log",
+    "encryptionEnabled": true,
+    "workflows": {
+      "medicationOrdering": {
+        "enabled": true,
+        "requireApproval": true,
+        "maxDoseLimit": 1000.0
+      },
+      "labResults": {
+        "enabled": true,
+        "autoValidation": false,
+        "criticalValueAlerts": true
+      }
+    },
+    "fhir": {
+      "enabled": true,
+      "version": "R4",
+      "serverUrl": "https://hapi.fhir.org/baseR4",
+      "authentication": {
+        "type": "none"
+      }
+    }
+  },
+  "monitoring": {
+    "enabled": true,
+    "metricsExporter": "prometheus",
+    "metricsPort": 8080,
+    "tracingEnabled": false,
+    "healthCheckEndpoint": "/health",
+    "alerts": {
+      "errorThreshold": 0.05,
+      "latencyThreshold": 1000
+    }
+  }
+}

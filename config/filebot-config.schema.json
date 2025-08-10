@@ -1,0 +1,504 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://lakeraven.com/filebot/schemas/config/v1.0.0",
+  "title": "FileBot Configuration Schema",
+  "description": "Cross-language configuration schema for FileBot healthcare MUMPS modernization platform",
+  "type": "object",
+  "properties": {
+    "filebot": {
+      "type": "object",
+      "description": "Core FileBot configuration",
+      "properties": {
+        "version": {
+          "type": "string",
+          "description": "Configuration schema version",
+          "pattern": "^\\d+\\.\\d+\\.\\d+$",
+          "default": "1.0.0"
+        },
+        "language": {
+          "type": "string",
+          "description": "Implementation language preference",
+          "enum": ["auto", "ruby", "java", "python"],
+          "default": "auto"
+        },
+        "defaultAdapter": {
+          "type": "string",
+          "description": "Default MUMPS database adapter",
+          "enum": ["auto_detect", "iris", "yottadb", "gtm"],
+          "default": "auto_detect"
+        },
+        "performanceLogging": {
+          "type": "boolean",
+          "description": "Enable performance logging and metrics",
+          "default": true
+        },
+        "healthcareAuditEnabled": {
+          "type": "boolean",
+          "description": "Enable healthcare audit logging for HIPAA compliance",
+          "default": true
+        },
+        "connectionPoolSize": {
+          "type": "integer",
+          "description": "Database connection pool size",
+          "minimum": 1,
+          "maximum": 100,
+          "default": 5
+        },
+        "connectionTimeout": {
+          "type": "integer",
+          "description": "Connection timeout in seconds",
+          "minimum": 1,
+          "maximum": 300,
+          "default": 30
+        },
+        "maxRetryAttempts": {
+          "type": "integer",
+          "description": "Maximum retry attempts for failed operations",
+          "minimum": 0,
+          "maximum": 10,
+          "default": 3
+        },
+        "retryBackoffMs": {
+          "type": "integer",
+          "description": "Retry backoff delay in milliseconds",
+          "minimum": 100,
+          "maximum": 10000,
+          "default": 1000
+        }
+      },
+      "additionalProperties": false
+    },
+    "adapters": {
+      "type": "object",
+      "description": "Database adapter configurations",
+      "properties": {
+        "iris": {
+          "type": "object",
+          "description": "InterSystems IRIS adapter configuration",
+          "properties": {
+            "connection_type": {
+              "type": "string",
+              "description": "Connection type: native (Python Native API), jdbc (JAR files), odbc, or rest",
+              "enum": ["native", "jdbc", "odbc", "rest"],
+              "default": "native"
+            },
+            "host": {
+              "type": "string",
+              "description": "IRIS server hostname or IP address",
+              "format": "hostname",
+              "default": "localhost"
+            },
+            "port": {
+              "type": "integer",
+              "description": "IRIS server port number",
+              "minimum": 1,
+              "maximum": 65535,
+              "default": 1972
+            },
+            "namespace": {
+              "type": "string",
+              "description": "IRIS namespace",
+              "pattern": "^[A-Z][A-Z0-9_-]*$",
+              "default": "USER"
+            },
+            "username": {
+              "type": "string",
+              "description": "IRIS username",
+              "minLength": 1,
+              "default": "_SYSTEM"
+            },
+            "password": {
+              "type": "string",
+              "description": "IRIS password",
+              "minLength": 1
+            },
+            "connectionString": {
+              "type": "string",
+              "description": "Custom JDBC connection string (overrides host/port/namespace for JDBC connections)"
+            },
+            "ssl": {
+              "type": "boolean",
+              "description": "Enable SSL/TLS connection",
+              "default": false
+            },
+            "ssl_cert": {
+              "type": "string",
+              "description": "SSL certificate file path"
+            },
+            "jarPaths": {
+              "type": "array",
+              "description": "Paths to IRIS JAR files (for JDBC connections)",
+              "items": {
+                "type": "string"
+              },
+              "default": ["vendor/jars", "lib/jars"]
+            },
+            "odbc_driver": {
+              "type": "string",
+              "description": "ODBC driver name (for ODBC connections)",
+              "default": "InterSystems IRIS ODBC35"
+            },
+            "rest_api_url": {
+              "type": "string",
+              "description": "REST API base URL (for REST connections)",
+              "format": "uri"
+            },
+            "connection_pool_size": {
+              "type": "integer",
+              "description": "Native API connection pool size",
+              "minimum": 1,
+              "maximum": 50,
+              "default": 5
+            },
+            "connection_timeout": {
+              "type": "integer",
+              "description": "Connection timeout in seconds",
+              "minimum": 1,
+              "maximum": 300,
+              "default": 30
+            }
+          },
+          "required": ["username", "password"],
+          "additionalProperties": false
+        },
+        "yottadb": {
+          "type": "object",
+          "description": "YottaDB adapter configuration",
+          "properties": {
+            "ydbDir": {
+              "type": "string",
+              "description": "YottaDB installation directory",
+              "default": "/opt/yottadb"
+            },
+            "ydbRel": {
+              "type": "string",
+              "description": "YottaDB release version",
+              "pattern": "^r\\d+$",
+              "default": "r134"
+            },
+            "ydbGblDir": {
+              "type": "string",
+              "description": "Global directory path"
+            },
+            "ydbRoutines": {
+              "type": "string",
+              "description": "Routine search path"
+            },
+            "host": {
+              "type": "string",
+              "description": "YottaDB server hostname (for remote access)",
+              "format": "hostname",
+              "default": "localhost"
+            },
+            "port": {
+              "type": "integer",
+              "description": "YottaDB server port (for remote access)",
+              "minimum": 1,
+              "maximum": 65535,
+              "default": 9080
+            },
+            "user": {
+              "type": "string",
+              "description": "YottaDB user account"
+            }
+          },
+          "additionalProperties": false
+        },
+        "gtm": {
+          "type": "object",
+          "description": "GT.M adapter configuration",
+          "properties": {
+            "gtmDir": {
+              "type": "string",
+              "description": "GT.M installation directory",
+              "default": "/usr/lib/fis-gtm"
+            },
+            "gtmDist": {
+              "type": "string",
+              "description": "GT.M distribution directory"
+            },
+            "gtmGblDir": {
+              "type": "string",
+              "description": "Global directory path"
+            },
+            "gtmRoutines": {
+              "type": "string",
+              "description": "Routine search path"
+            },
+            "host": {
+              "type": "string",
+              "description": "GT.M server hostname (for remote access)",
+              "format": "hostname",
+              "default": "localhost"
+            },
+            "port": {
+              "type": "integer",
+              "description": "GT.M server port (for remote access)",
+              "minimum": 1,
+              "maximum": 65535,
+              "default": 9081
+            },
+            "user": {
+              "type": "string",
+              "description": "GT.M user account"
+            }
+          },
+          "additionalProperties": false
+        }
+      },
+      "additionalProperties": {
+        "type": "object",
+        "description": "Custom adapter configuration",
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Adapter type identifier"
+          }
+        },
+        "additionalProperties": true
+      }
+    },
+    "bridge": {
+      "type": "object",
+      "description": "Cross-language bridge configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable cross-language bridge",
+          "default": false
+        },
+        "type": {
+          "type": "string",
+          "description": "Bridge protocol type",
+          "enum": ["grpc", "rest", "tcp", "unix_socket"],
+          "default": "grpc"
+        },
+        "host": {
+          "type": "string",
+          "description": "Bridge server host",
+          "format": "hostname",
+          "default": "localhost"
+        },
+        "port": {
+          "type": "integer",
+          "description": "Bridge server port",
+          "minimum": 1,
+          "maximum": 65535,
+          "default": 9090
+        },
+        "socketPath": {
+          "type": "string",
+          "description": "Unix socket path (for unix_socket bridge)"
+        },
+        "maxConnections": {
+          "type": "integer",
+          "description": "Maximum concurrent bridge connections",
+          "minimum": 1,
+          "maximum": 1000,
+          "default": 50
+        },
+        "authentication": {
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": false
+            },
+            "method": {
+              "type": "string",
+              "enum": ["token", "jwt", "basic"],
+              "default": "token"
+            },
+            "secret": {
+              "type": "string",
+              "description": "Authentication secret"
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "healthcare": {
+      "type": "object",
+      "description": "Healthcare-specific configuration",
+      "properties": {
+        "hipaaCompliance": {
+          "type": "boolean",
+          "description": "Enable HIPAA compliance features",
+          "default": true
+        },
+        "auditLogPath": {
+          "type": "string",
+          "description": "Path for healthcare audit logs",
+          "default": "/var/log/filebot/healthcare-audit.log"
+        },
+        "encryptionEnabled": {
+          "type": "boolean",
+          "description": "Enable data encryption at rest",
+          "default": true
+        },
+        "encryptionKey": {
+          "type": "string",
+          "description": "Encryption key (should be externally managed)"
+        },
+        "workflows": {
+          "type": "object",
+          "description": "Healthcare workflow configurations",
+          "properties": {
+            "medicationOrdering": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "requireApproval": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "maxDoseLimit": {
+                  "type": "number",
+                  "minimum": 0
+                }
+              }
+            },
+            "labResults": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean",
+                  "default": true
+                },
+                "autoValidation": {
+                  "type": "boolean",
+                  "default": false
+                },
+                "criticalValueAlerts": {
+                  "type": "boolean",
+                  "default": true
+                }
+              }
+            }
+          }
+        },
+        "fhir": {
+          "type": "object",
+          "description": "FHIR R4 integration configuration",
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "default": true
+            },
+            "version": {
+              "type": "string",
+              "enum": ["R4", "R5"],
+              "default": "R4"
+            },
+            "serverUrl": {
+              "type": "string",
+              "format": "uri",
+              "description": "FHIR server URL"
+            },
+            "authentication": {
+              "type": "object",
+              "properties": {
+                "type": {
+                  "type": "string",
+                  "enum": ["none", "basic", "bearer", "oauth2"]
+                },
+                "credentials": {
+                  "type": "object"
+                }
+              }
+            }
+          }
+        }
+      },
+      "additionalProperties": false
+    },
+    "monitoring": {
+      "type": "object",
+      "description": "Monitoring and metrics configuration",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable monitoring",
+          "default": true
+        },
+        "metricsExporter": {
+          "type": "string",
+          "enum": ["prometheus", "statsd", "jaeger", "otlp"],
+          "default": "prometheus"
+        },
+        "metricsPort": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 65535,
+          "default": 8080
+        },
+        "tracingEnabled": {
+          "type": "boolean",
+          "default": false
+        },
+        "healthCheckEndpoint": {
+          "type": "string",
+          "default": "/health"
+        },
+        "alerts": {
+          "type": "object",
+          "properties": {
+            "errorThreshold": {
+              "type": "number",
+              "minimum": 0,
+              "maximum": 1,
+              "default": 0.05
+            },
+            "latencyThreshold": {
+              "type": "integer",
+              "description": "Latency threshold in milliseconds",
+              "minimum": 1,
+              "default": 1000
+            }
+          }
+        }
+      }
+    }
+  },
+  "required": ["filebot"],
+  "additionalProperties": false,
+  "examples": [
+    {
+      "filebot": {
+        "defaultAdapter": "iris",
+        "performanceLogging": true,
+        "healthcareAuditEnabled": true,
+        "connectionPoolSize": 10
+      },
+      "adapters": {
+        "iris": {
+          "host": "iris-prod.hospital.com",
+          "port": 1972,
+          "namespace": "VISTA",
+          "username": "FILEBOTUSER",
+          "password": "${IRIS_PASSWORD}",
+          "ssl": true
+        }
+      },
+      "healthcare": {
+        "hipaaCompliance": true,
+        "auditLogPath": "/var/log/filebot/audit.log",
+        "workflows": {
+          "medicationOrdering": {
+            "enabled": true,
+            "requireApproval": true
+          }
+        },
+        "fhir": {
+          "enabled": true,
+          "version": "R4",
+          "serverUrl": "https://fhir.hospital.com/r4"
+        }
+      }
+    }
+  ]
+}
