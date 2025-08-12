@@ -1,0 +1,28 @@
+version: '3.8'
+
+services:
+  iris-benchmark:
+    image: intersystemsdc/iris-community:2024.1
+    container_name: iris-benchmark
+    ports:
+      - "1972:1972"    # IRIS server port
+      - "52773:52773"  # Management Portal
+    environment:
+      - IRIS_PASSWORD=passwordpassword
+      - IRIS_USERNAME=_SYSTEM
+    volumes:
+      - iris-data:/opt/irisbuild/data
+      - ./iris-setup.sql:/opt/irisbuild/iris-setup.sql
+    command: |
+      --check-caps false
+      --before "/opt/irisbuild/iris-setup.sql"
+    healthcheck:
+      test: ["CMD", "iris", "session", "iris", "-U", "USER", "##class(%SYSTEM.Process).CurrentDirectory()"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+
+volumes:
+  iris-data:
+    name: iris-benchmark-data

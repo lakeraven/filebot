@@ -1,0 +1,31 @@
+version: '3.8'
+
+services:
+  iris:
+    image: intersystems/iris-community:latest
+    container_name: filebot-iris-benchmark
+    ports:
+      - "1972:1972"   # IRIS SuperServer port
+      - "52773:52773" # IRIS Web Services port
+    environment:
+      - ISC_PASSWORD=SYS
+      - ISC_DATA_DIRECTORY=/opt/irisapp/data
+    volumes:
+      - iris-data:/opt/irisapp/data
+      - ./benchmarks/iris-init.script:/tmp/iris-init.script:ro
+    healthcheck:
+      test: ["CMD", "/usr/irissys/bin/iris", "qlist", "IRIS"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    networks:
+      - filebot-benchmark
+
+networks:
+  filebot-benchmark:
+    driver: bridge
+
+volumes:
+  iris-data:
+    driver: local
