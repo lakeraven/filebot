@@ -42,7 +42,7 @@ Gem::Specification.new do |spec|
   spec.require_paths = ["lib"]
 
   # JRuby platform requirement for Java Native API
-  spec.platform = "java"
+  spec.platform = "jruby"
   spec.required_ruby_version = ">= 3.0.0"
   
   # Minimal runtime dependencies

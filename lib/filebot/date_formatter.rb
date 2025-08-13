@@ -10,7 +10,7 @@ module FileBot
     end
 
     def self.parse_fileman_date(fileman_date)
-      return nil if fileman_date.blank? || fileman_date.length != 7
+      return nil if fileman_date.nil? || fileman_date.to_s.strip.empty? || fileman_date.length != 7
 
       century = fileman_date[0].to_i < 5 ? "20" : "19"
       year = century + fileman_date[1..2]
