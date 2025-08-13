@@ -3,7 +3,7 @@
 [![Gem Version](https://badge.fury.io/rb/filebot.svg)](https://badge.fury.io/rb/filebot)
 [![JRuby](https://img.shields.io/badge/ruby-jruby-red.svg)](http://jruby.org)
 
-FileBot provides **6.96x performance improvement** over Legacy FileMan while maintaining full MUMPS/VistA compatibility and enabling modern healthcare workflows.
+FileBot provides **significant performance improvements** over Legacy FileMan while maintaining full MUMPS/VistA compatibility and enabling modern healthcare workflows.
 
 ## Features
 
@@ -13,7 +13,7 @@ FileBot provides **6.96x performance improvement** over Legacy FileMan while mai
 - 🔌 **Multi-platform MUMPS database support** (IRIS, YottaDB, GT.M)
 - ⚡ **Event sourcing compatible architecture**
 - 📱 **Ruby web integration ready**
-- 🎯 **100-1000x performance improvements** with integrated optimization features
+- 🎯 **Significant performance improvements** with integrated optimization features
 - 💾 **Intelligent caching, batch processing, connection pooling** built-in
 
 ## Installation
@@ -72,14 +72,15 @@ export IRIS_PASSWORD=your-password
 ```
 
 ```ruby
-# Alternative: Ruby configuration file
-FileBot.configure do |config|
-  config.iris_host = "your-iris-host.com"
-  config.iris_port = 1972
-  config.iris_namespace = "USER"
-  config.iris_username = "_SYSTEM"
-  config.iris_password = "secure-password"
-end
+# Alternative: Ruby configuration hash
+config = {
+  iris_host: "your-iris-host.com",
+  iris_port: 1972,
+  iris_namespace: "USER", 
+  iris_username: "_SYSTEM",
+  iris_password: "secure-password"
+}
+filebot = FileBot.new(:iris, config)
 ```
 
 ### YottaDB & GT.M (Future Support)
@@ -470,29 +471,26 @@ Features under consideration for future FileBot releases:
 
 > **Note**: The goal is to modernize healthcare data management while preserving the reliability and clinical validation that makes FileMan trusted in healthcare environments.
 
-## Performance Benchmarks
+## Performance Features
 
-FileBot vs Legacy FileMan performance (5 runs average):
+FileBot includes several performance optimizations:
 
-| Operation | FileBot | Legacy FileMan | Improvement |
-|-----------|---------|----------------|-------------|
-| Patient Demographics | 12.3ms | 77.1ms | **6.27x** |
-| Patient Search | 15.8ms | 89.4ms | **5.66x** |
-| Patient Creation | 28.5ms | 156.2ms | **5.48x** |
-| Batch Operations | 45.7ms | 312.8ms | **6.85x** |
-| Clinical Summary | 18.9ms | 134.5ms | **7.12x** |
-| **Overall Average** | **24.2ms** | **154.0ms** | **6.36x** |
+- **Intelligent Caching**: Healthcare-specific TTL caching (demographics: 1hr, clinical: 15min, lab: 30min)
+- **Connection Pooling**: Optimized for IRIS Community connection limits
+- **Query Routing**: Automatic SQL vs Native API selection for optimal performance
+- **Batch Processing**: Efficient bulk operations for high-volume data processing
+- **Performance Monitoring**: Real-time metrics and optimization recommendations
 
 ## Architecture
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Ruby/Rails    │    │   FileBot Gem   │    │   MUMPS/IRIS    │
+│   Ruby/JRuby    │    │   FileBot Gem   │    │   MUMPS/IRIS    │
 │   Application   │◄──►│                 │◄──►│   Database      │
 │                 │    │ • Core Ops      │    │                 │
 │ • Models        │    │ • Workflows     │    │ • Globals       │
-│ • Controllers   │    │ • FHIR Export   │    │ • FileMan       │
-│ • Views         │    │ • Native API    │    │ • Routines      │
+│ • Business Logic│    │ • Optimization  │    │ • FileMan       │
+│ • Web Framework │    │ • Native API    │    │ • Routines      │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
