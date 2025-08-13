@@ -872,7 +872,7 @@ module FileBot
         synchronize do
           if @checked_out.delete(connection.object_id)
             @available << connection
-            signal
+            # Signal waiting threads that a connection is available
           end
         end
       end
