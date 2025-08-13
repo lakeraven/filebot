@@ -1,7 +1,8 @@
 require "bundler/gem_tasks"
 require "rake/testtask"
 
-Rake::TestTask.new do |t|
+# Standard gem tests (no database dependencies required)
+Rake::TestTask.new(:test) do |t|
   t.libs << "test"
   t.libs << "lib"
   t.test_files = FileList[
@@ -14,18 +15,18 @@ Rake::TestTask.new do |t|
   t.verbose = true
 end
 
-# Gem-specific test task that doesn't require database connections
-Rake::TestTask.new(:gem_test) do |t|
-  t.libs << "test" 
-  t.libs << "lib"
-  t.test_files = FileList[
-    "test/simple_test.rb",
-    "test/simple_adapter_test.rb", 
-    "test/final_structure_test.rb",
-    "test/gem_integration_test.rb"
-  ]
-  t.verbose = true
-  t.ruby_opts = ['-w']
+desc "Validate gem architecture and functionality"
+task :validate do
+  puts "🎯 Running FileBot gem validation"
+  sh "jruby -Ilib test/gem_validation.rb"
+end
+
+desc "Run core functionality tests"
+task :gem_test do
+  puts "🔍 Running core functionality tests"
+  sh "jruby -Ilib test/simple_test.rb"
+  puts "\n📊 Running adapter tests"
+  sh "jruby -Ilib test/simple_adapter_test.rb"
 end
 
 desc "Build and install FileBot gem locally"
@@ -35,27 +36,4 @@ task :install do
   sh "rm -f filebot-*.gem"
 end
 
-desc "Run FileBot smoke test"
-task :smoke_test do
-  puts "🧪 Testing FileBot gem functionality"
-  ruby_code = <<~RUBY
-    require 'filebot'
-    puts \"FileBot version: \#{FileBot::VERSION}\"
-    puts \"✅ FileBot gem loaded successfully\"
-  RUBY
-  sh "ruby -e '#{ruby_code}'"
-end
-
-desc "Validate FileBot gem architecture and refactoring"
-task :validate do
-  puts "🎯 Running FileBot architectural validation"
-  sh "jruby -Ilib test/gem_validation.rb"
-end
-
-desc "Run gem-targeted tests (no database dependencies)"
-task :gem_validate do
-  puts "🔍 Running gem validation and core tests"
-  sh "jruby -Ilib test/gem_validation.rb"
-  puts "\n📋 Running simple structure tests"
-  sh "jruby -Ilib test/simple_test.rb"
-end
+task :default => :test
