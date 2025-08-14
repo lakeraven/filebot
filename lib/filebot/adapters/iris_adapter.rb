@@ -89,24 +89,131 @@ module FileBot
       end
 
       def connected?
-        !@iris_native.nil? && @iris_native.isConnected rescue false
+        !@iris_native.nil? && !@iris_native.isClosed rescue false
       end
 
       def execute_mumps(code)
-        # Try different execution methods available on IRISDatabase
-        if @iris_native.respond_to?(:execute)
-          @iris_native.execute(code)
-        elsif @iris_native.respond_to?(:executeUpdate)
-          @iris_native.executeUpdate(code)
-        else
-          # Fallback to simple return for testing
-          puts "MUMPS execution not available: #{code}" if ENV['FILEBOT_DEBUG']
+        return "" if @iris_native.nil?
+        
+        # Use same MUMPS execution pattern as working rpms_redux
+        clean_code = code.strip.gsub(/\n\s*/, " ")
+        puts "FileBot: Executing MUMPS: #{clean_code}" if ENV['FILEBOT_DEBUG']
+        
+        begin
+          # Method 1: Try direct SQL execution for simple MUMPS commands
+          if clean_code.match(/^W[RITE]*\s+(.+)$/)
+            # Handle WRITE commands
+            expression = $1
+            if expression.match(/^"([^"]+)"$/)
+              # Simple quoted string
+              return $1
+            elsif expression.match(/^\$G[ET]*\((.+)\)$/)
+              # Handle $GET() function calls
+              get_expression = $1
+              return execute_get_operation(get_expression)
+            end
+          elsif clean_code.match(/^S[ET]*\s+(.+)$/)
+            # Handle SET commands
+            set_expression = $1
+            return execute_set_operation(set_expression)
+          end
+          
+          # Method 2: Use JDBC statement execution
+          stmt = @iris_native.createStatement
+          begin
+            # Try different SQL wrapper approaches
+            sql_approaches = [
+              "SELECT %SYSTEM_SQL.Execute('#{clean_code.gsub("'", "''")}')",
+              "DO $SYSTEM.SQL.Execute('#{clean_code.gsub("'", "''")}')"
+            ]
+            
+            sql_approaches.each do |sql|
+              begin
+                puts "FileBot: Trying SQL: #{sql}" if ENV['FILEBOT_DEBUG']
+                result_set = stmt.executeQuery(sql)
+                result = ""
+                if result_set.next
+                  result = result_set.getString(1) || ""
+                end
+                result_set.close
+                puts "FileBot: SQL execution result: #{result}" if ENV['FILEBOT_DEBUG']
+                return result
+              rescue => e
+                puts "FileBot: SQL approach failed: #{e.message}" if ENV['FILEBOT_DEBUG']
+                next
+              end
+            end
+            
+            # Method 3: Try direct execute
+            stmt.execute(clean_code)
+            return ""
+            
+          ensure
+            stmt.close
+          end
+          
+        rescue => e
+          puts "FileBot: MUMPS execution failed: #{e.message}" if ENV['FILEBOT_DEBUG']
           ""
         end
-      rescue => e
-        puts "MUMPS execution failed: #{e.message}" if ENV['FILEBOT_DEBUG']
+      end
+      
+      private
+      
+      def execute_get_operation(get_expression)
+        # Handle $GET(^GLOBAL(subscripts)) operations
+        if get_expression.match(/^\^(\w+)\((.+)\)$/)
+          global_name = $1
+          subscripts = $2
+          puts "FileBot: GET operation: ^#{global_name}(#{subscripts})" if ENV['FILEBOT_DEBUG']
+          
+          # Use same pattern as working rpms_redux: SELECT %SYSTEM_SQL.Execute('WRITE $GET(...)')
+          sql = "SELECT %SYSTEM_SQL.Execute('WRITE $GET(^#{global_name}(#{subscripts}))')"
+          stmt = @iris_native.createStatement
+          begin
+            result_set = stmt.executeQuery(sql)
+            result = ""
+            if result_set.next
+              result = result_set.getString(1) || ""
+            end
+            result_set.close
+            puts "FileBot: GET result: #{result}" if ENV['FILEBOT_DEBUG']
+            return result
+          ensure
+            stmt.close
+          end
+        end
+        
         ""
       end
+      
+      def execute_set_operation(set_expression)
+        # Handle SET ^GLOBAL(subscripts)=value operations  
+        if set_expression.match(/^\^(\w+)\((.+)\)=(.+)$/)
+          global_name = $1
+          subscripts = $2
+          value = $3
+          puts "FileBot: SET operation: ^#{global_name}(#{subscripts})=#{value}" if ENV['FILEBOT_DEBUG']
+          
+          # Clean up value (remove quotes if present)
+          cleaned_value = value.gsub(/^"/, '').gsub(/"$/, '')
+          
+          # Use direct SQL to set the global
+          sql = "DO $SYSTEM.SQL.Execute('SET ^#{global_name}(#{subscripts})=\"#{cleaned_value}\"')"
+          stmt = @iris_native.createStatement
+          begin
+            stmt.execute(sql)
+            puts "FileBot: SET operation completed" if ENV['FILEBOT_DEBUG']
+            return ""
+          ensure
+            stmt.close
+          end
+        end
+        
+        ""
+      end
+      
+      public
 
       def lock_global(global, *subscripts, timeout: 30)
         lock_ref = build_lock_reference(global, *subscripts)
@@ -161,29 +268,28 @@ module FileBot
         # Load IRIS JARs using the JAR manager
         FileBot::JarManager.load_iris_jars!
 
-        # Import IRIS classes
+        # Import IRIS classes (using same pattern as working rpms_redux)
         java_import "com.intersystems.jdbc.IRISDriver"
-        java_import "com.intersystems.binding.IRISDatabase"
+        java_import "com.intersystems.jdbc.IRISConnection"
         java_import "java.util.Properties"
 
-        puts "FileBot: Establishing IRIS Native API connection" if ENV['FILEBOT_DEBUG']
+        puts "FileBot: Establishing IRIS JDBC connection for native operations" if ENV['FILEBOT_DEBUG']
 
         # Get credentials from environment configuration
         iris_config = get_iris_credentials
 
-        # First establish JDBC connection
+        # Establish JDBC connection using same pattern as rpms_redux
         driver = IRISDriver.new
         properties = Properties.new
         properties.setProperty("user", iris_config[:username])
         properties.setProperty("password", iris_config[:password])
 
         connection_url = "jdbc:IRIS://#{iris_config[:host]}:#{iris_config[:port]}/#{iris_config[:namespace]}"
-        jdbc_connection = driver.connect(connection_url, properties)
+        
+        # Store the JDBC connection directly (like rpms_redux does)
+        @iris_native = driver.connect(connection_url, properties)
 
-        # Then get Native API from JDBC connection
-        @iris_native = IRISDatabase.getDatabase(jdbc_connection)
-
-        puts "FileBot: IRIS Native API connection established to #{iris_config[:host]}:#{iris_config[:port]}" if ENV['FILEBOT_DEBUG']
+        puts "FileBot: IRIS JDBC connection established to #{iris_config[:host]}:#{iris_config[:port]}" if ENV['FILEBOT_DEBUG']
       end
 
       def get_iris_credentials
@@ -195,7 +301,13 @@ module FileBot
         return @iris_version if defined?(@iris_version)
         
         begin
-          @iris_version = @iris_native.getServerVersion if @iris_native
+          # Try to get version from JDBC connection metadata
+          if @iris_native
+            metadata = @iris_native.getMetaData
+            @iris_version = "#{metadata.getDatabaseProductName} #{metadata.getDatabaseProductVersion}"
+          else
+            @iris_version = "unknown"
+          end
         rescue => e
           puts "Could not get IRIS version: #{e.message}" if ENV['FILEBOT_DEBUG']
           @iris_version = "unknown"
