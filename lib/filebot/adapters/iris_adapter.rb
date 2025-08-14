@@ -141,76 +141,13 @@ module FileBot
         !@iris_native.nil? && !@jdbc_connection.nil? && !@jdbc_connection.isClosed rescue false
       end
 
-      def execute_mumps(code)
-        return "" if @iris_native.nil?
-        
-        # Use Native SDK for ObjectScript execution when possible
-        clean_code = code.strip.gsub(/\n\s*/, " ")
-        puts "FileBot: Executing MUMPS: #{clean_code}" if ENV['FILEBOT_DEBUG']
-        
-        begin
-          # Method 1: Handle simple WRITE commands directly
-          if clean_code.match(/^W[RITE]*\s+"([^"]+)"$/)
-            # Simple quoted string write
-            return $1
-          elsif clean_code.match(/^W[RITE]*\s+\$G[ET]*\((.+)\)$/)
-            # WRITE $GET(global) - use our get_global method
-            get_expression = $1
-            if get_expression.match(/^\^(\w+)\((.+)\)$/)
-              global_name = "^#{$1}"
-              subscripts = parse_subscripts($2)
-              return get_global(global_name, *subscripts)
-            elsif get_expression.match(/^\^(\w+)$/)
-              return get_global("^#{$1}")
-            end
-          elsif clean_code.match(/^S[ET]*\s+\^(\w+)\((.+)\)="(.+)"$/)
-            # SET ^GLOBAL(subscripts)=value - use our set_global method
-            global_name = "^#{$1}"
-            subscripts = parse_subscripts($2)
-            value = $3
-            set_global(global_name, *subscripts, value)
-            return "OK"
-          end
-          
-          # Method 2: Try Native SDK function calls for ObjectScript functions
-          begin
-            # For system functions like $HOROLOG, we can call them via functionString
-            if clean_code.match(/^W[RITE]*\s+(\$\w+.*)$/)
-              function_expr = $1
-              if @iris_native.respond_to?(:functionString)
-                result = @iris_native.functionString(function_expr)
-                puts "FileBot: Native SDK function result: #{result}" if ENV['FILEBOT_DEBUG']
-                return result.to_s
-              end
-            end
-          rescue => native_error
-            puts "FileBot: Native SDK function failed: #{native_error.message}" if ENV['FILEBOT_DEBUG']
-          end
-          
-          # If all methods fail, return empty string
-          ""
-          
-        rescue => e
-          puts "FileBot: MUMPS execution failed: #{e.message}" if ENV['FILEBOT_DEBUG']
-          ""
-        end
-      end
+      # FileBot no longer executes MUMPS/ObjectScript code
+      # All business logic is now implemented in Ruby
+      # IRIS is used as pure data layer only
       
       private
       
-      def parse_subscripts(subscripts_str)
-        # Parse MUMPS subscripts: "key1","key2",123 -> ["key1", "key2", 123]
-        subscripts_str.split(',').map do |sub|
-          sub = sub.strip
-          if sub.match(/^"([^"]*)"$/)
-            $1  # Remove quotes
-          elsif sub.match(/^\d+$/)
-            sub.to_i  # Convert to integer
-          else
-            sub  # Keep as string
-          end
-        end
-      end
+      # Helper methods for IRIS global operations
       
       public
 
