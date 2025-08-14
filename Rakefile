@@ -36,4 +36,33 @@ task :install do
   sh "rm -f filebot-*.gem"
 end
 
+desc "Run integration tests against live IRIS instance"
+task :integration do
+  puts "🧪 Running FileBot integration tests against live IRIS"
+  puts "Requires: IRIS Community running, JAR files in vendor/jars/, IRIS_PASSWORD set"
+  puts ""
+  sh "IRIS_PASSWORD=#{ENV['IRIS_PASSWORD'] || 'passwordpassword'} jruby -Ilib test/iris_integration_test.rb"
+end
+
+desc "Run healthcare workflow tests"
+task :healthcare do
+  puts "🏥 Running healthcare workflow tests"
+  sh "IRIS_PASSWORD=#{ENV['IRIS_PASSWORD'] || 'passwordpassword'} jruby -Ilib test/healthcare_workflows_test.rb"
+end
+
+desc "Run performance benchmark tests"
+task :performance do
+  puts "⚡ Running performance benchmark tests"
+  sh "IRIS_PASSWORD=#{ENV['IRIS_PASSWORD'] || 'passwordpassword'} jruby -Ilib test/performance_benchmark_test.rb"
+end
+
+desc "Run FileMan compatibility tests"
+task :compatibility do
+  puts "🔄 Running FileMan compatibility tests"
+  sh "IRIS_PASSWORD=#{ENV['IRIS_PASSWORD'] || 'passwordpassword'} jruby -Ilib test/fileman_compatibility_test.rb"
+end
+
+desc "Run all integration tests (requires live IRIS)"
+task :test_integration => [:integration, :healthcare, :performance, :compatibility]
+
 task :default => :test
