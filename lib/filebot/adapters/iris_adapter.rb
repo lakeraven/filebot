@@ -18,6 +18,13 @@ module FileBot
           # Convert ^GLOBAL format to just GLOBAL for Native SDK
           clean_global = global.sub(/^\^/, '')
           
+          # Validate global name (IRIS doesn't allow underscores in many contexts)
+          if clean_global.include?('_')
+            puts "FileBot: Warning - global name '#{clean_global}' contains underscore, may cause IRIS syntax errors" if ENV['FILEBOT_DEBUG']
+            # Convert underscores to valid characters for IRIS
+            clean_global = clean_global.gsub('_', 'X')
+          end
+          
           if subscripts.empty?
             # Get global root
             @iris_native.getString(clean_global)
@@ -41,6 +48,13 @@ module FileBot
         begin
           # Convert ^GLOBAL format to just GLOBAL for Native SDK
           clean_global = global.sub(/^\^/, '')
+          
+          # Validate global name (IRIS doesn't allow underscores in many contexts)
+          if clean_global.include?('_')
+            puts "FileBot: Warning - global name '#{clean_global}' contains underscore, may cause IRIS syntax errors" if ENV['FILEBOT_DEBUG']
+            # Convert underscores to valid characters for IRIS
+            clean_global = clean_global.gsub('_', 'X')
+          end
           
           if subscripts.empty?
             # Set global root
