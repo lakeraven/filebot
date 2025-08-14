@@ -27,28 +27,28 @@ Gem::Specification.new do |spec|
 
   # Specify which files should be added to the gem when it is released.
   spec.files = Dir.chdir(__dir__) do
-    `git ls-files -z`.split("\x0").reject do |f|
-      (File.expand_path(f) == __FILE__) ||
-        f.start_with?(*%w[bin/ test/ spec/ features/ .git .github appveyor Gemfile])
-    end
+    Dir[
+      "lib/**/*.rb",
+      "exe/*", 
+      "README.md",
+      "CHANGELOG.md", 
+      "MIT-LICENSE",
+      "doc/DEPLOYMENT.md"
+    ].select { |f| File.exist?(f) }
   end
-  
-  # Include lib directory explicitly
-  spec.files += Dir["lib/**/*.rb"]
-  spec.files += Dir["doc/*.md"]
-  spec.files += Dir["script/*.rb"]
   
   spec.bindir = "exe"
   spec.executables = spec.files.grep(%r{\Aexe/}) { |f| File.basename(f) }
   spec.require_paths = ["lib"]
 
-  # Runtime dependencies
-  spec.add_dependency "activesupport", ">= 7.0"
+  # JRuby platform requirement for Java Native API
+  spec.platform = "jruby"
+  spec.required_ruby_version = ">= 3.0.0"
   
-  # JRuby platform dependencies
-  spec.platform = "java"
+  # Minimal runtime dependencies
+  # Note: No external runtime dependencies by design for maximum compatibility
   
-  # Development dependencies
+  # Development dependencies (not included in published gem)
   spec.add_development_dependency "bundler", "~> 2.0"
   spec.add_development_dependency "rake", "~> 13.0"
   spec.add_development_dependency "minitest", "~> 5.0"

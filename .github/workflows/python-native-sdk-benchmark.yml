@@ -169,7 +169,7 @@ jobs:
         fi
         
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "🏆 **Expected Performance**: 86x faster than Legacy FileMan" >> $GITHUB_STEP_SUMMARY
+        echo "🏆 **Expected Performance**: Modern development experience vs Legacy FileMan" >> $GITHUB_STEP_SUMMARY
         echo "⚡ **Direct Global Access**: Sub-millisecond operations" >> $GITHUB_STEP_SUMMARY
         echo "🔬 **Healthcare Workflows**: 2-3ms clinical operations" >> $GITHUB_STEP_SUMMARY
 
@@ -199,7 +199,7 @@ jobs:
         echo "| JRuby FileBot | 63.0ms | 124.9ms | 218.0ms |" >> $GITHUB_STEP_SUMMARY
         echo "| Legacy FileMan | 77.1ms | 156.2ms | 134.5ms |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
-        echo "🥇 **Python Native SDK is 82-107x faster than other platforms!**" >> $GITHUB_STEP_SUMMARY
+        echo "🥇 **Python Native SDK provides modern development experience**" >> $GITHUB_STEP_SUMMARY
         
         # List available benchmark artifacts
         echo "" >> $GITHUB_STEP_SUMMARY

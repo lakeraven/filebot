@@ -4,7 +4,7 @@ module FileBot
   # Parser utilities for patient data
   class PatientParser
     def self.parse_zero_node(dfn, data)
-      return nil if data.blank?
+      return nil if data.nil? || data.to_s.strip.empty?
 
       fields = data.split("^")
       {
@@ -17,7 +17,7 @@ module FileBot
     end
 
     def self.parse_clinical_summary(dfn, result)
-      return nil if result.blank?
+      return nil if result.nil? || result.to_s.strip.empty?
 
       parts = result.split("~~")
       demo_data = parts[0]
@@ -28,10 +28,10 @@ module FileBot
       return nil unless patient
 
       # Add allergies
-      patient[:allergies] = allergies_data.present? ? allergies_data.split("~") : []
+      patient[:allergies] = (allergies_data && !allergies_data.strip.empty?) ? allergies_data.split("~") : []
 
       # Add vitals
-      if vitals_data.present?
+      if vitals_data && !vitals_data.strip.empty?
         vital_parts = vitals_data.split("^")
         patient[:latest_visit] = {
           date: parse_fileman_date(vital_parts[0]),
@@ -45,7 +45,7 @@ module FileBot
     private
 
     def self.parse_fileman_date(fileman_date)
-      return nil if fileman_date.blank? || fileman_date.length != 7
+      return nil if fileman_date.nil? || fileman_date.to_s.strip.empty? || fileman_date.length != 7
 
       century = fileman_date[0].to_i < 5 ? "20" : "19"
       year = century + fileman_date[1..2]

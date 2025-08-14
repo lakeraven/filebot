@@ -10,15 +10,16 @@ module FileBot
     end
 
     def self.parse_fileman_date(fileman_date)
-      return nil if fileman_date.blank? || fileman_date.length != 7
+      return nil if fileman_date.nil? || fileman_date.to_s.strip.empty? || fileman_date.length != 7
 
-      century = fileman_date[0].to_i < 5 ? "20" : "19"
-      year = century + fileman_date[1..2]
+      # FileMan date format: YYYMMDD where YYY is years since 1700
+      fileman_year = fileman_date[0..2].to_i
+      actual_year = fileman_year + 1700
       month = fileman_date[3..4]
       day = fileman_date[5..6]
 
       begin
-        Date.parse("#{year}-#{month}-#{day}")
+        Date.parse("#{actual_year}-#{month}-#{day}")
       rescue
         nil
       end

@@ -309,7 +309,7 @@ jobs:
         echo "| JRuby FileBot | 63.0ms | 124.9ms | 218.0ms | 405.9ms |" >> $GITHUB_STEP_SUMMARY
         echo "" >> $GITHUB_STEP_SUMMARY
         echo "## Key Findings" >> $GITHUB_STEP_SUMMARY
-        echo "- 🥇 **Python Native SDK**: 82-107x faster than other platforms" >> $GITHUB_STEP_SUMMARY
+        echo "- 🥇 **Python Native SDK**: Modern development experience" >> $GITHUB_STEP_SUMMARY
         echo "- ⚡ **Direct Global Access**: Sub-millisecond operations" >> $GITHUB_STEP_SUMMARY
         echo "- 🏥 **Healthcare Ready**: 2-3ms clinical workflows" >> $GITHUB_STEP_SUMMARY
         echo "- 🔬 **Data Science**: Native pandas/numpy integration" >> $GITHUB_STEP_SUMMARY

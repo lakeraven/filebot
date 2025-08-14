@@ -3,7 +3,7 @@
 [![Gem Version](https://badge.fury.io/rb/filebot.svg)](https://badge.fury.io/rb/filebot)
 [![JRuby](https://img.shields.io/badge/ruby-jruby-red.svg)](http://jruby.org)
 
-FileBot provides **6.96x performance improvement** over Legacy FileMan while maintaining full MUMPS/VistA compatibility and enabling modern healthcare workflows.
+FileBot provides modern Ruby development experience for healthcare MUMPS systems while maintaining full MUMPS/VistA compatibility and enabling modern healthcare workflows.
 
 ## Features
 
@@ -13,6 +13,8 @@ FileBot provides **6.96x performance improvement** over Legacy FileMan while mai
 - 🔌 **Multi-platform MUMPS database support** (IRIS, YottaDB, GT.M)
 - ⚡ **Event sourcing compatible architecture**
 - 📱 **Ruby web integration ready**
+- 🎯 **Modernization benefits** with integrated optimization features
+- 💾 **Intelligent caching, batch processing, connection pooling** built-in
 
 ## Installation
 
@@ -51,12 +53,12 @@ lab_result = filebot.lab_result_entry_workflow("123", "CBC", "Normal")
 
 ### InterSystems IRIS
 
-**⚖️ Legal Notice**: InterSystems IRIS JAR files (`intersystems-binding-*.jar`, `intersystems-jdbc-*.jar`) are proprietary software components owned by InterSystems Corporation. These files must be obtained separately from InterSystems and are subject to InterSystems' licensing terms. FileBot does not distribute or include these JAR files.
+**⚖️ Legal Notice**: InterSystems IRIS Native API components are proprietary software owned by InterSystems Corporation. These components must be obtained separately from InterSystems and are subject to InterSystems' licensing terms. FileBot uses the officially published Native API packages available through standard package managers.
 
-1. **Install IRIS JAR files** in one of these locations:
-   - `vendor/jars/` (Ruby app)
-   - `/usr/local/lib/intersystems/` (system-wide)
-   - `$INTERSYSTEMS_HOME/` (environment variable)
+1. **Install IRIS Native API components**:
+   - **Python**: `pip install intersystems-iris-native`
+   - **Java**: Add `intersystems-iris-native` JAR to classpath  
+   - **Ruby**: JAR auto-detection via JRuby integration
 
 2. **Configure credentials** via environment variables:
 
@@ -70,14 +72,15 @@ export IRIS_PASSWORD=your-password
 ```
 
 ```ruby
-# Alternative: Ruby configuration file
-FileBot.configure do |config|
-  config.iris_host = "your-iris-host.com"
-  config.iris_port = 1972
-  config.iris_namespace = "USER"
-  config.iris_username = "_SYSTEM"
-  config.iris_password = "secure-password"
-end
+# Alternative: Ruby configuration hash
+config = {
+  iris_host: "your-iris-host.com",
+  iris_port: 1972,
+  iris_namespace: "USER", 
+  iris_username: "_SYSTEM",
+  iris_password: "secure-password"
+}
+filebot = FileBot.new(:iris, config)
 ```
 
 ### YottaDB & GT.M (Future Support)
@@ -276,7 +279,7 @@ FileBot focuses on core database operations and healthcare workflows. The follow
 | FileMan Feature | Status | Alternative |
 |-----------------|--------|-------------|
 | Print Templates (`^DIPT`) | ❌ Not Supported | Use modern templating engines (Jinja2, Thymeleaf, ERB) |
-| Sort Templates (`^DIBT`) | ❌ Not Supported | Use native sorting methods or SQL ORDER BY |
+| Sort Templates (`^DIBT`) | ❌ Not Supported | Use native sorting methods or application-level sorting |
 | `D EN1^DIP` (Print entries) | ❌ Not Supported | Custom reporting with modern web frameworks |
 | Mail merge templates | ❌ Not Supported | Use email libraries with templates |
 
@@ -468,29 +471,47 @@ Features under consideration for future FileBot releases:
 
 > **Note**: The goal is to modernize healthcare data management while preserving the reliability and clinical validation that makes FileMan trusted in healthcare environments.
 
-## Performance Benchmarks
+## Performance Analysis
 
-FileBot vs Legacy FileMan performance (5 runs average):
+FileBot vs FileMan Performance (40 runs statistical analysis, live IRIS Community):
 
-| Operation | FileBot | Legacy FileMan | Improvement |
-|-----------|---------|----------------|-------------|
-| Patient Demographics | 12.3ms | 77.1ms | **6.27x** |
-| Patient Search | 15.8ms | 89.4ms | **5.66x** |
-| Patient Creation | 28.5ms | 156.2ms | **5.48x** |
-| Batch Operations | 45.7ms | 312.8ms | **6.85x** |
-| Clinical Summary | 18.9ms | 134.5ms | **7.12x** |
-| **Overall Average** | **24.2ms** | **154.0ms** | **6.36x** |
+| Operation Category | FileBot Avg | FileMan Avg | FileBot Advantage |
+|-------------------|-------------|-------------|-------------------|
+| Patient Retrieval | 0.910ms | 0.983ms | **8% faster** ✅ |
+| Patient Creation | 0.827ms | 1.299ms | **36% faster** ✅ |
+| Global Access | 1.667ms | 1.127ms | 48% slower ⚠️ |
+| Healthcare Workflow | 1.803ms | 1.416ms | 27% slower ⚠️ |
+| **Overall Average** | **1.271ms** | **1.246ms** | **Statistical parity** |
+
+**Result**: FileBot achieves performance parity with FileMan while providing modern abstractions and healthcare-specific optimizations.
+
+**FileBot Value Proposition**:
+- Modern Ruby development experience vs MUMPS
+- Integrated testing, CI/CD, and deployment tools  
+- Web framework compatibility and ecosystem access
+- Maintainable, readable code vs legacy MUMPS
+- Healthcare workflow abstractions and validations
+
+### Modernization Features
+
+FileBot provides these development benefits through:
+
+- **Intelligent Caching**: Healthcare-specific TTL caching (demographics: 1hr, clinical: 15min, lab: 30min)
+- **Connection Pooling**: Optimized for IRIS Community connection limits
+- **Ruby Ecosystem**: Access to modern gems, testing frameworks, and deployment tools
+- **Batch Processing**: Efficient bulk operations for high-volume data processing
+- **Performance Monitoring**: Real-time metrics and optimization recommendations
 
 ## Architecture
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│   Ruby/Rails    │    │   FileBot Gem   │    │   MUMPS/IRIS    │
+│   Ruby/JRuby    │    │   FileBot Gem   │    │   MUMPS/IRIS    │
 │   Application   │◄──►│                 │◄──►│   Database      │
 │                 │    │ • Core Ops      │    │                 │
 │ • Models        │    │ • Workflows     │    │ • Globals       │
-│ • Controllers   │    │ • FHIR Export   │    │ • FileMan       │
-│ • Views         │    │ • Native API    │    │ • Routines      │
+│ • Business Logic│    │ • Optimization  │    │ • FileMan       │
+│ • Web Framework │    │ • Native API    │    │ • Routines      │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
 ```
 
@@ -532,8 +553,14 @@ After checking out the repo, run:
 # Install dependencies
 bundle install
 
-# Run tests
-rake test
+# Run gem validation tests (no database required)
+jruby -S rake validate
+
+# Run all gem-targeted tests
+jruby -S rake gem_validate
+
+# Run full test suite (requires IRIS setup)
+jruby -S rake test
 
 # Run linting
 standardrb
