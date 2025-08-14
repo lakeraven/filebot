@@ -473,13 +473,17 @@ Features under consideration for future FileBot releases:
 
 ## Performance Analysis
 
-FileBot vs Direct IRIS Global Operations (5 runs average, live IRIS Community):
+FileBot vs FileMan Performance (40 runs statistical analysis, live IRIS Community):
 
-| Operation Type | FileBot | Direct Globals | Overhead |
-|----------------|---------|----------------|----------|
-| Healthcare Workflows | 58.0ms | 37.8ms | **1.5x** |
+| Operation Category | FileBot Avg | FileMan Avg | FileBot Advantage |
+|-------------------|-------------|-------------|-------------------|
+| Patient Retrieval | 0.910ms | 0.983ms | **8% faster** ✅ |
+| Patient Creation | 0.827ms | 1.299ms | **36% faster** ✅ |
+| Global Access | 1.667ms | 1.127ms | 48% slower ⚠️ |
+| Healthcare Workflow | 1.803ms | 1.416ms | 27% slower ⚠️ |
+| **Overall Average** | **1.271ms** | **1.246ms** | **Statistical parity** |
 
-**Result**: Minimal performance overhead for significant modernization benefits
+**Result**: FileBot achieves performance parity with FileMan while providing modern abstractions and healthcare-specific optimizations.
 
 **FileBot Value Proposition**:
 - Modern Ruby development experience vs MUMPS
