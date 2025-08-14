@@ -178,6 +178,193 @@ module FileBot
       end
     end
 
+    # === Priority 1: Extended CRUD Operations ===
+
+    # Delete patient record (replaces FileMan EN^DIEZ)
+    def delete_patient(dfn)
+      track_performance("delete_patient") do
+        result = @connection_pool.with_connection do |conn|
+          begin
+            Models::Patient.delete(dfn, conn)
+          rescue => e
+            puts "FileBot: Patient deletion failed: #{e.message}" if ENV['FILEBOT_DEBUG']
+            { success: false, error: e.message }
+          end
+        end
+        
+        # Clear cache for deleted patient
+        invalidate_patient_cache(dfn) if result[:success]
+        
+        result
+      end
+    end
+
+    # Boolean search with AND/OR logic
+    def boolean_search(criteria)
+      track_performance("boolean_search") do
+        @connection_pool.with_connection do |conn|
+          begin
+            Models::Patient.boolean_search(criteria, conn)
+          rescue => e
+            puts "FileBot: Boolean search failed: #{e.message}" if ENV['FILEBOT_DEBUG']
+            []
+          end
+        end
+      end
+    end
+
+    # Range search operations
+    def range_search(field, range_criteria)
+      track_performance("range_search") do
+        @connection_pool.with_connection do |conn|
+          begin
+            Models::Patient.range_search(field, range_criteria, conn)
+          rescue => e
+            puts "FileBot: Range search failed: #{e.message}" if ENV['FILEBOT_DEBUG']
+            []
+          end
+        end
+      end
+    end
+
+    # Multiple field update
+    def update_multiple_fields(dfn, field_updates)
+      track_performance("update_multiple_fields") do
+        result = @connection_pool.with_connection do |conn|
+          begin
+            patient = Models::Patient.find(dfn, conn)
+            return { success: false, error: "Patient not found" } unless patient
+            
+            patient.update_multiple_fields(field_updates, conn)
+          rescue => e
+            puts "FileBot: Multiple field update failed: #{e.message}" if ENV['FILEBOT_DEBUG']
+            { success: false, error: e.message }
+          end
+        end
+        
+        # Clear cache for updated patient
+        invalidate_patient_cache(dfn) if result[:success]
+        
+        result
+      end
+    end
+
+    # Rebuild cross-references
+    def rebuild_cross_references(dfn)
+      track_performance("rebuild_cross_references") do
+        @connection_pool.with_connection do |conn|
+          begin
+            Models::Patient.rebuild_cross_references(dfn, conn)
+          rescue => e
+            puts "FileBot: Cross-reference rebuild failed: #{e.message}" if ENV['FILEBOT_DEBUG']
+            { success: false, error: e.message }
+          end
+        end
+      end
+    end
+
+    # === Priority 3: Healthcare-Specific Operations ===
+
+    # Allergy management
+    def manage_patient_allergies(patient_dfn, allergy_data)
+      track_performance("manage_patient_allergies") do
+        @connection_pool.with_connection do |conn|
+          begin
+            # Load allergy model
+            require_relative 'models/allergy'
+            
+            allergy = Models::Allergy.create(patient_dfn, allergy_data, conn)
+            interactions = Models::Allergy.check_interactions(patient_dfn, allergy_data[:allergen], conn)
+            
+            { success: true, allergy_ien: allergy.ien, interactions: interactions }
+          rescue => e
+            puts "FileBot: Allergy management failed: #{e.message}" if ENV['FILEBOT_DEBUG']
+            { success: false, error: e.message }
+          end
+        end
+      end
+    end
+
+    # Provider relationship validation
+    def validate_provider_relationship(patient_dfn, provider_ien)
+      track_performance("validate_provider_relationship") do
+        @connection_pool.with_connection do |conn|
+          begin
+            # Load provider model
+            require_relative 'models/provider'
+            
+            Models::Provider.validate_patient_provider_relationship(patient_dfn, provider_ien, conn)
+          rescue => e
+            puts "FileBot: Provider validation failed: #{e.message}" if ENV['FILEBOT_DEBUG']
+            { valid: false, error: e.message }
+          end
+        end
+      end
+    end
+
+    # Clinical decision support
+    def clinical_decision_support(patient_dfn, clinical_data = {})
+      track_performance("clinical_decision_support") do
+        @connection_pool.with_connection do |conn|
+          begin
+            patient = Models::Patient.find(patient_dfn, conn)
+            return { alerts: ["Patient not found"], recommendations: [] } unless patient
+
+            alerts = []
+            recommendations = []
+
+            # Age-based alerts
+            if patient.dob && (Date.today - patient.dob).to_i / 365 > 65
+              alerts << "Geriatric patient - consider age-appropriate protocols"
+            end
+
+            # Load and check allergies
+            require_relative 'models/allergy'
+            allergies = Models::Allergy.find_by_patient(patient_dfn, conn)
+            if allergies.any?
+              alerts << "Patient has #{allergies.length} known allergies"
+              recommendations << "Review allergy list before prescribing"
+            end
+
+            { alerts: alerts, recommendations: recommendations, patient_dfn: patient_dfn }
+          rescue => e
+            puts "FileBot: Clinical decision support failed: #{e.message}" if ENV['FILEBOT_DEBUG']
+            { alerts: ["Error: #{e.message}"], recommendations: [] }
+          end
+        end
+      end
+    end
+
+    # Medication interaction checking
+    def check_medication_interactions(patient_dfn, medication)
+      track_performance("check_medication_interactions") do
+        @connection_pool.with_connection do |conn|
+          begin
+            require_relative 'models/allergy'
+            
+            allergies = Models::Allergy.find_by_patient(patient_dfn, conn)
+            interactions = []
+
+            allergies.each do |allergy|
+              if medication[:name].upcase.include?(allergy.allergen.upcase)
+                interactions << {
+                  type: "allergy",
+                  allergen: allergy.allergen,
+                  medication: medication[:name],
+                  severity: allergy.severity
+                }
+              end
+            end
+
+            { interactions: interactions, severity: interactions.any? ? "high" : "none", safe: interactions.empty? }
+          rescue => e
+            puts "FileBot: Medication interaction check failed: #{e.message}" if ENV['FILEBOT_DEBUG']
+            { interactions: [], severity: "unknown", safe: false, error: e.message }
+          end
+        end
+      end
+    end
+
     # === Performance Management (First-Class) ===
 
     def warm_cache(dfn_list, fields: :all)

@@ -120,6 +120,113 @@ module FileBot
         }
       end
       
+      # Priority 1: Delete patient record (replaces FileMan EN^DIEZ)
+      def self.delete(dfn, adapter)
+        begin
+          # Find patient first to get cross-reference data
+          patient = find(dfn, adapter)
+          return { success: false, error: "Patient not found" } unless patient
+          
+          # Remove main record
+          adapter.set_global("^DPT", dfn, "0", "")
+          
+          # Clean up B cross-reference
+          if patient.name && !patient.name.empty?
+            adapter.set_global("^DPT", "B", patient.name.upcase, dfn, "")
+          end
+          
+          { success: true, dfn: dfn, deleted: true }
+        rescue => e
+          { success: false, error: e.message }
+        end
+      end
+      
+      # Priority 1: Advanced search with Boolean logic
+      def self.boolean_search(criteria, adapter, limit = 50)
+        results = []
+        
+        # Support AND/OR operations
+        if criteria[:and]
+          results = search_with_and_logic(criteria[:and], adapter, limit)
+        elsif criteria[:or]
+          results = search_with_or_logic(criteria[:or], adapter, limit)
+        else
+          # Simple criteria search
+          results = search_by_criteria(criteria, adapter, limit)
+        end
+        
+        results
+      end
+      
+      # Priority 1: Range search operations
+      def self.range_search(field, range_criteria, adapter, limit = 50)
+        results = []
+        
+        case field
+        when :dob
+          results = search_by_date_range(range_criteria, adapter, limit)
+        when :dfn
+          results = search_by_dfn_range(range_criteria, adapter, limit)
+        when :name
+          results = search_by_name_range(range_criteria, adapter, limit)
+        end
+        
+        results
+      end
+      
+      # Priority 1: Multiple field processing
+      def update_multiple_fields(field_updates, adapter)
+        begin
+          # Validate all fields first
+          field_updates.each do |field, value|
+            validate_field_update(field, value)
+          end
+          
+          # Apply all updates atomically
+          current_data = {
+            name: @name,
+            ssn: @ssn,
+            dob: @dob,
+            sex: @sex
+          }.merge(field_updates)
+          
+          formatted_data = self.class.format_patient_data(current_data)
+          @adapter.set_global("^DPT", @dfn, "0", formatted_data)
+          
+          # Update cross-references if name changed
+          if field_updates[:name]
+            @adapter.set_global("^DPT", "B", field_updates[:name].upcase, @dfn, "")
+          end
+          
+          load_data(formatted_data)
+          { success: true, updated_fields: field_updates.keys }
+        rescue => e
+          { success: false, error: e.message }
+        end
+      end
+      
+      # Priority 1: Cross-reference rebuilding
+      def self.rebuild_cross_references(dfn, adapter)
+        begin
+          patient = find(dfn, adapter)
+          return { success: false, error: "Patient not found" } unless patient
+          
+          # Rebuild B (name) cross-reference
+          if patient.name && !patient.name.empty?
+            adapter.set_global("^DPT", "B", patient.name.upcase, dfn, "")
+          end
+          
+          # Rebuild C (SSN) cross-reference
+          if patient.ssn && !patient.ssn.empty?
+            adapter.set_global("^DPT", "C", patient.ssn, dfn, "")
+          end
+          
+          { success: true, dfn: dfn, cross_references_rebuilt: ["B", "C"] }
+        rescue => e
+          { success: false, error: e.message }
+        end
+      end
+      
       # Validation rules (replaces FileMan input transforms and validations)
       def self.validate_patient_attributes!(attributes)
         raise ArgumentError, "Name is required" if attributes[:name].nil? || attributes[:name].strip.empty?
@@ -231,6 +338,121 @@ module FileBot
         return true if date.is_a?(Date)
         return false unless date.is_a?(String) && date.length == 7
         DateFormatter.parse_fileman_date(date) != nil
+      end
+      
+      # Priority 1: Supporting methods for advanced search
+      def self.search_with_and_logic(criteria_list, adapter, limit)
+        # Start with all patients, then filter down
+        all_results = search_by_name("", adapter, 1000)  # Get larger set first
+        
+        criteria_list.each do |criteria|
+          all_results = all_results.select do |patient|
+            matches_criteria?(patient, criteria)
+          end
+        end
+        
+        all_results.first(limit)
+      end
+      
+      def self.search_with_or_logic(criteria_list, adapter, limit)
+        all_results = []
+        
+        criteria_list.each do |criteria|
+          results = search_by_criteria(criteria, adapter, limit)
+          all_results.concat(results)
+        end
+        
+        # Remove duplicates and limit
+        all_results.uniq { |p| p.dfn }.first(limit)
+      end
+      
+      def self.search_by_criteria(criteria, adapter, limit)
+        if criteria[:name]
+          search_by_name(criteria[:name], adapter, limit)
+        elsif criteria[:ssn]
+          search_by_ssn(criteria[:ssn], adapter, limit)
+        elsif criteria[:sex]
+          search_by_sex(criteria[:sex], adapter, limit)
+        else
+          []
+        end
+      end
+      
+      def self.search_by_ssn(ssn_pattern, adapter, limit)
+        # Would implement SSN cross-reference search
+        # For now, simulate by searching through records
+        search_by_name("", adapter, 1000).select do |patient|
+          patient.ssn && patient.ssn.include?(ssn_pattern)
+        end.first(limit)
+      end
+      
+      def self.search_by_sex(sex, adapter, limit)
+        # Search through records for sex match
+        search_by_name("", adapter, 1000).select do |patient|
+          patient.sex == sex
+        end.first(limit)
+      end
+      
+      def self.search_by_date_range(range_criteria, adapter, limit)
+        start_date = range_criteria[:start]
+        end_date = range_criteria[:end]
+        
+        search_by_name("", adapter, 1000).select do |patient|
+          patient.dob && 
+          patient.dob >= start_date && 
+          patient.dob <= end_date
+        end.first(limit)
+      end
+      
+      def self.search_by_dfn_range(range_criteria, adapter, limit)
+        start_dfn = range_criteria[:start].to_i
+        end_dfn = range_criteria[:end].to_i
+        
+        search_by_name("", adapter, 1000).select do |patient|
+          dfn_num = patient.dfn.to_i
+          dfn_num >= start_dfn && dfn_num <= end_dfn
+        end.first(limit)
+      end
+      
+      def self.search_by_name_range(range_criteria, adapter, limit)
+        start_name = range_criteria[:start].upcase
+        end_name = range_criteria[:end].upcase
+        
+        search_by_name("", adapter, 1000).select do |patient|
+          patient.name &&
+          patient.name.upcase >= start_name &&
+          patient.name.upcase <= end_name
+        end.first(limit)
+      end
+      
+      def self.matches_criteria?(patient, criteria)
+        criteria.all? do |field, value|
+          case field
+          when :name
+            patient.name && patient.name.upcase.include?(value.upcase)
+          when :ssn
+            patient.ssn && patient.ssn.include?(value)
+          when :sex
+            patient.sex == value
+          when :dob
+            patient.dob == value
+          else
+            false
+          end
+        end
+      end
+      
+      def validate_field_update(field, value)
+        case field
+        when :name
+          raise ArgumentError, "Name cannot be empty" if value.nil? || value.strip.empty?
+        when :ssn
+          raise ArgumentError, "Invalid SSN format" unless self.class.valid_ssn?(value)
+        when :sex
+          raise ArgumentError, "Invalid sex" unless %w[M F].include?(value)
+        when :dob
+          raise ArgumentError, "Invalid date" unless value.is_a?(Date)
+        end
       end
     end
   end

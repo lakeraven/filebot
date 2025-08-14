@@ -80,35 +80,30 @@ module FileBot
         begin
           clean_global = global.sub(/^\^/, '')
           
-          if subscripts.empty?
-            # Get first subscript
-            iter = @iris_native.iterator(clean_global)
-            iter.hasNext ? iter.next : ""
+          iter = subscripts.empty? ? @iris_native.iterator(clean_global) : @iris_native.iterator(clean_global, *subscripts)
+          if iter && iter.hasNext
+            next_val = iter.next
+            puts 'ORDER next: ' + next_val.to_s if ENV['FILEBOT_DEBUG']
+            next_val
           else
-            # Get next subscript after given subscripts
-            iter = @iris_native.iterator(clean_global, *subscripts)
-            iter.hasNext ? iter.next : ""
+            puts 'ORDER failed or no next for ' + clean_global + ' ' + subscripts.inspect if ENV['FILEBOT_DEBUG']
+            ""
           end
         rescue => e
-          puts "FileBot: Global ORDER failed: #{e.message}" if ENV['FILEBOT_DEBUG']
+          puts 'ORDER error: ' + e.message if ENV['FILEBOT_DEBUG']
           ""
         end
       end
 
       def data_global(global, *subscripts)
         return 0 if @iris_native.nil?
-        
-        # Use Native SDK isDefined method
         begin
           clean_global = global.sub(/^\^/, '')
-          
-          if subscripts.empty?
-            @iris_native.isDefined(clean_global) ? 1 : 0
-          else
-            @iris_native.isDefined(clean_global, *subscripts) ? 1 : 0
-          end
+          defined = subscripts.empty? ? @iris_native.isDefined(clean_global) : @iris_native.isDefined(clean_global, *subscripts)
+          puts 'DATA for ' + clean_global + ' ' + subscripts.inspect + ': ' + defined.to_s if ENV['FILEBOT_DEBUG']
+          defined ? 1 : 0
         rescue => e
-          puts "FileBot: Global DATA failed: #{e.message}" if ENV['FILEBOT_DEBUG']
+          puts 'DATA error: ' + e.message if ENV['FILEBOT_DEBUG']
           0
         end
       end
@@ -144,6 +139,28 @@ module FileBot
       # FileBot no longer executes MUMPS/ObjectScript code
       # All business logic is now implemented in Ruby
       # IRIS is used as pure data layer only
+      
+      # Real ObjectScript/MUMPS execution using IRIS Native SDK
+      def execute_mumps(mumps_code)
+        return "" if @iris_native.nil?
+        
+        begin
+          # Use IRIS Native SDK to execute ObjectScript directly
+          # This bypasses SQL and executes real MUMPS/ObjectScript code
+          result = @iris_native.classMethodValue("%SYSTEM.Process", "Evaluate", mumps_code)
+          result.toString
+        rescue => e
+          puts "FileBot: ObjectScript execution failed: #{e.message}" if ENV['FILEBOT_DEBUG']
+          # Fallback: try direct routine execution if available
+          begin
+            # Alternative: use procedure call for FileMan routines
+            @iris_native.procedure("FileManCall", mumps_code)
+          rescue => e2
+            puts "FileBot: Fallback execution failed: #{e2.message}" if ENV['FILEBOT_DEBUG']
+            ""
+          end
+        end
+      end
       
       private
       
