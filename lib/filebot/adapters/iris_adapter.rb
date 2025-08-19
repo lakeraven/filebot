@@ -122,19 +122,35 @@ module FileBot
         begin
           clean_global = global.sub(/^\^/, '')
           
-          # Check if the node has a value
+          # MUMPS $DATA function returns:
+          # 0 = undefined (node does not exist)
+          # 1 = defined, has value but no descendants  
+          # 10 = defined, has descendants but no value
+          # 11 = defined, has both value and descendants
+          
           has_value = false
           has_descendants = false
           
+          # Check if the node has a value using Native SDK isDefined
           begin
-            val = if subscripts.empty?
-              @iris_native.getString(clean_global)
+            has_value = if subscripts.empty?
+              @iris_native.isDefined(clean_global) 
             else
-              @iris_native.getString(clean_global, *subscripts)
+              @iris_native.isDefined(clean_global, *subscripts)
             end
-            has_value = !(val.nil? || val == "")
+            
+            # Double-check with getString for accuracy
+            if has_value
+              val = if subscripts.empty?
+                @iris_native.getString(clean_global)
+              else
+                @iris_native.getString(clean_global, *subscripts)
+              end
+              has_value = !(val.nil? || val.to_s.empty?)
+            end
           rescue => e
             puts "DATA value check error: #{e.message}" if ENV['FILEBOT_DEBUG']
+            has_value = false
           end
           
           # Check if the node has descendants using iterator
@@ -143,12 +159,15 @@ module FileBot
             has_descendants = iterator.hasNext
           rescue => e
             puts "DATA descendant check error: #{e.message}" if ENV['FILEBOT_DEBUG']
+            has_descendants = false
           end
           
+          # Calculate $DATA return value
           data_val = 0
           data_val += 1 if has_value
           data_val += 10 if has_descendants
-          puts "DATA for #{clean_global} #{subscripts.inspect}: #{data_val}" if ENV['FILEBOT_DEBUG']
+          
+          puts "DATA(#{clean_global}#{subscripts.empty? ? '' : ','+subscripts.join(',')}) = #{data_val}" if ENV['FILEBOT_DEBUG']
           data_val
         rescue => e
           puts "DATA error: #{e.message}" if ENV['FILEBOT_DEBUG']
