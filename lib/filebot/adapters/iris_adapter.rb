@@ -965,6 +965,318 @@ module FileBot
       
       public
 
+      # === Comprehensive Error Handling and Logging ===
+      
+      class FileManError < StandardError
+        attr_reader :error_code, :field, :value, :context
+        
+        def initialize(message, error_code: nil, field: nil, value: nil, context: {})
+          super(message)
+          @error_code = error_code
+          @field = field
+          @value = value
+          @context = context
+        end
+        
+        def to_hash
+          {
+            message: message,
+            error_code: error_code,
+            field: field,
+            value: value,
+            context: context,
+            timestamp: Time.now.iso8601
+          }
+        end
+      end
+      
+      class ValidationError < FileManError; end
+      class DatabaseError < FileManError; end
+      class TransformError < FileManError; end
+      class CrossReferenceError < FileManError; end
+      
+      def handle_operation_with_retry(operation_name, max_retries: 3, &block)
+        # Wrapper for operations that may need retry logic
+        retries = 0
+        
+        begin
+          result = yield
+          log_operation_success(operation_name)
+          result
+        rescue => e
+          retries += 1
+          log_operation_error(operation_name, e, retries)
+          
+          if retries <= max_retries && retryable_error?(e)
+            wait_time = 2 ** retries # Exponential backoff
+            sleep(wait_time)
+            retry
+          else
+            raise DatabaseError.new(
+              "Operation #{operation_name} failed after #{retries} attempts: #{e.message}",
+              error_code: 'DB_OPERATION_FAILED',
+              context: { operation: operation_name, retries: retries, original_error: e.class.name }
+            )
+          end
+        end
+      end
+      
+      def safe_global_operation(operation_type, global, *args, &block)
+        # Wrapper for all global operations with error handling
+        begin
+          validate_global_name(global)
+          validate_subscripts(*args) if args.any?
+          
+          result = yield
+          
+          log_global_operation(operation_type, global, args, true)
+          result
+        rescue ValidationError => e
+          # Re-raise validation errors as-is
+          raise e
+        rescue Java::JavaSql::SQLException => e
+          handle_sql_exception(operation_type, global, args, e)
+        rescue Java::JavaLang::Exception => e
+          handle_java_exception(operation_type, global, args, e)
+        rescue => e
+          handle_ruby_exception(operation_type, global, args, e)
+        end
+      end
+      
+      def validate_connection_health
+        # Check if IRIS connection is healthy
+        unless connected?
+          raise DatabaseError.new(
+            "IRIS connection is not available",
+            error_code: 'CONNECTION_LOST'
+          )
+        end
+        
+        # Test basic operation
+        begin
+          @iris_native.getString("HEALTHCHECK")
+          true
+        rescue => e
+          raise DatabaseError.new(
+            "IRIS connection health check failed: #{e.message}",
+            error_code: 'CONNECTION_UNHEALTHY',
+            context: { test_operation: 'getString' }
+          )
+        end
+      end
+      
+      def with_error_context(context = {})
+        # Add context to errors for better debugging
+        Thread.current[:filebot_error_context] = context
+        yield
+      ensure
+        Thread.current[:filebot_error_context] = nil
+      end
+      
+      def enhanced_set_global(global, *subscripts_and_value)
+        # SET with comprehensive error handling
+        safe_global_operation(:set, global, *subscripts_and_value) do
+          handle_operation_with_retry("SET #{global}") do
+            validate_connection_health
+            set_global(global, *subscripts_and_value)
+          end
+        end
+      end
+      
+      def enhanced_get_global(global, *subscripts)
+        # GET with comprehensive error handling
+        safe_global_operation(:get, global, *subscripts) do
+          handle_operation_with_retry("GET #{global}") do
+            validate_connection_health
+            get_global(global, *subscripts)
+          end
+        end
+      end
+      
+      def enhanced_kill_global(global, *subscripts)
+        # KILL with comprehensive error handling
+        safe_global_operation(:kill, global, *subscripts) do
+          handle_operation_with_retry("KILL #{global}") do
+            validate_connection_health
+            kill_global(global, *subscripts)
+          end
+        end
+      end
+      
+      def robust_patient_operation(operation_name, ien, &block)
+        # Healthcare-specific operation wrapper
+        with_error_context(operation: operation_name, patient_ien: ien) do
+          begin
+            validate_ien(ien)
+            yield
+          rescue ValidationError => e
+            log_healthcare_error(operation_name, ien, e)
+            raise e
+          rescue => e
+            healthcare_error = DatabaseError.new(
+              "Patient operation #{operation_name} failed for IEN #{ien}: #{e.message}",
+              error_code: 'PATIENT_OPERATION_FAILED',
+              context: { patient_ien: ien, operation: operation_name }
+            )
+            log_healthcare_error(operation_name, ien, healthcare_error)
+            raise healthcare_error
+          end
+        end
+      end
+      
+      private
+      
+      def validate_global_name(global)
+        clean_name = global.to_s.sub(/^\^/, '')
+        
+        if clean_name.empty?
+          raise ValidationError.new(
+            "Global name cannot be empty",
+            error_code: 'INVALID_GLOBAL_NAME',
+            value: global
+          )
+        end
+        
+        unless clean_name.match(/^[A-Za-z][A-Za-z0-9]*$/)
+          raise ValidationError.new(
+            "Invalid global name format: #{clean_name}",
+            error_code: 'INVALID_GLOBAL_FORMAT',
+            value: global
+          )
+        end
+      end
+      
+      def validate_subscripts(*subscripts)
+        subscripts.each_with_index do |sub, index|
+          if sub.nil?
+            raise ValidationError.new(
+              "Subscript #{index} cannot be nil",
+              error_code: 'NULL_SUBSCRIPT',
+              value: sub,
+              context: { subscript_index: index }
+            )
+          end
+          
+          if sub.to_s.length > 255
+            raise ValidationError.new(
+              "Subscript #{index} exceeds maximum length of 255",
+              error_code: 'SUBSCRIPT_TOO_LONG',
+              value: sub,
+              context: { subscript_index: index, length: sub.to_s.length }
+            )
+          end
+        end
+      end
+      
+      def validate_ien(ien)
+        unless ien.to_s.match(/^\d+$/)
+          raise ValidationError.new(
+            "Invalid IEN format: #{ien}",
+            error_code: 'INVALID_IEN',
+            value: ien
+          )
+        end
+        
+        ien_num = ien.to_i
+        if ien_num <= 0 || ien_num > 999999999
+          raise ValidationError.new(
+            "IEN out of valid range: #{ien}",
+            error_code: 'IEN_OUT_OF_RANGE', 
+            value: ien
+          )
+        end
+      end
+      
+      def retryable_error?(error)
+        # Determine if an error is worth retrying
+        case error
+        when Java::JavaSql::SQLException
+          # SQL connection issues might be temporary
+          error.message.include?('connection') || error.message.include?('timeout')
+        when Java::JavaLang::Exception
+          # Some Java exceptions might be retryable
+          error.message.include?('timeout') || error.message.include?('unavailable')
+        else
+          false
+        end
+      end
+      
+      def handle_sql_exception(operation_type, global, args, exception)
+        error_message = "SQL error during #{operation_type} on #{global}: #{exception.message}"
+        
+        raise DatabaseError.new(
+          error_message,
+          error_code: 'SQL_EXCEPTION',
+          context: {
+            operation_type: operation_type,
+            global: global,
+            args: args,
+            sql_state: exception.getSQLState,
+            error_code: exception.getErrorCode
+          }
+        )
+      end
+      
+      def handle_java_exception(operation_type, global, args, exception)
+        error_message = "Java error during #{operation_type} on #{global}: #{exception.message}"
+        
+        raise DatabaseError.new(
+          error_message,
+          error_code: 'JAVA_EXCEPTION',
+          context: {
+            operation_type: operation_type,
+            global: global,
+            args: args,
+            java_class: exception.class.name
+          }
+        )
+      end
+      
+      def handle_ruby_exception(operation_type, global, args, exception)
+        error_message = "Ruby error during #{operation_type} on #{global}: #{exception.message}"
+        
+        raise DatabaseError.new(
+          error_message,
+          error_code: 'RUBY_EXCEPTION',
+          context: {
+            operation_type: operation_type,
+            global: global,
+            args: args,
+            ruby_class: exception.class.name,
+            backtrace: exception.backtrace.first(3)
+          }
+        )
+      end
+      
+      def log_operation_success(operation_name)
+        return unless ENV['FILEBOT_LOG_LEVEL'] == 'DEBUG'
+        puts "[FileBot] SUCCESS: #{operation_name} at #{Time.now.strftime('%H:%M:%S')}"
+      end
+      
+      def log_operation_error(operation_name, error, retry_count)
+        return unless ENV['FILEBOT_LOG_LEVEL'] && ENV['FILEBOT_LOG_LEVEL'] != 'NONE'
+        puts "[FileBot] ERROR: #{operation_name} failed (attempt #{retry_count}): #{error.message}"
+      end
+      
+      def log_global_operation(operation_type, global, args, success)
+        return unless ENV['FILEBOT_LOG_LEVEL'] == 'DEBUG'
+        status = success ? 'SUCCESS' : 'FAILED'
+        args_str = args.empty? ? '' : "(#{args.join(',')})"
+        puts "[FileBot] #{status}: #{operation_type} #{global}#{args_str}"
+      end
+      
+      def log_healthcare_error(operation_name, ien, error)
+        return unless ENV['FILEBOT_LOG_LEVEL'] && ENV['FILEBOT_LOG_LEVEL'] != 'NONE'
+        puts "[FileBot] HEALTHCARE ERROR: #{operation_name} for patient #{ien}: #{error.message}"
+        
+        # In production, this would go to a proper logging system
+        if ENV['FILEBOT_LOG_LEVEL'] == 'DEBUG'
+          puts "[FileBot] ERROR DETAILS: #{error.to_hash.to_json}" if error.respond_to?(:to_hash)
+        end
+      end
+      
+      public
+
       # FileBot no longer executes MUMPS/ObjectScript code
       # All business logic is now implemented in Ruby
       # IRIS is used as pure data layer only
