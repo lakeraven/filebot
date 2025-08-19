@@ -352,6 +352,430 @@ module FileBot
         end
       end
 
+      # === FileMan Validation Framework ===
+      
+      def validate_field(file_global, field_number, value, ien = nil)
+        # FileMan-style field validation
+        validation_errors = []
+        
+        # Get field definition (simulated - in real FileMan this comes from ^DD)
+        field_def = get_field_definition(file_global, field_number)
+        
+        # Required field validation
+        if field_def[:required] && (value.nil? || value.to_s.strip.empty?)
+          validation_errors << "#{field_def[:name]} is required"
+        end
+        
+        # Data type validation
+        unless validate_data_type(value, field_def[:type])
+          validation_errors << "#{field_def[:name]} must be #{field_def[:type]}"
+        end
+        
+        # Length validation
+        if field_def[:max_length] && value.to_s.length > field_def[:max_length]
+          validation_errors << "#{field_def[:name]} exceeds maximum length of #{field_def[:max_length]}"
+        end
+        
+        # Pattern validation (skip for empty optional fields)
+        if field_def[:pattern] && !value.to_s.strip.empty? && !value.to_s.match(field_def[:pattern])
+          validation_errors << "#{field_def[:name]} format is invalid"
+        end
+        
+        # Uniqueness validation (if specified)
+        if field_def[:unique] && ien
+          existing_ien = find_by_cross_reference(file_global, field_number, value.to_s).first
+          if existing_ien && existing_ien != ien.to_s
+            validation_errors << "#{field_def[:name]} must be unique - already exists in record #{existing_ien}"
+          end
+        end
+        
+        # Custom validation rules
+        if field_def[:custom_validator]
+          custom_errors = field_def[:custom_validator].call(value, ien)
+          validation_errors.concat(custom_errors) if custom_errors
+        end
+        
+        {
+          valid: validation_errors.empty?,
+          errors: validation_errors,
+          field: field_def[:name]
+        }
+      end
+      
+      def validate_record(file_global, ien, data = {})
+        # Validate entire record
+        all_errors = []
+        field_results = {}
+        
+        # Get current record data if not provided
+        if data.empty? && ien
+          # Load current field values
+          field_definitions(file_global).each do |field_num, field_def|
+            current_value = get_global(file_global, ien, field_num)
+            data[field_num] = current_value unless current_value.empty?
+          end
+        end
+        
+        # Validate each field
+        field_definitions(file_global).each do |field_num, field_def|
+          value = data[field_num]
+          result = validate_field(file_global, field_num, value, ien)
+          field_results[field_num] = result
+          all_errors.concat(result[:errors])
+        end
+        
+        # Cross-field validation
+        cross_field_errors = validate_cross_fields(file_global, data, ien)
+        all_errors.concat(cross_field_errors)
+        
+        {
+          valid: all_errors.empty?,
+          errors: all_errors,
+          field_results: field_results
+        }
+      end
+      
+      def safe_set_global(file_global, ien, field_number, value)
+        # Validated SET operation
+        validation_result = validate_field(file_global, field_number, value, ien)
+        
+        if validation_result[:valid]
+          # Get field definition for cross-reference handling
+          field_def = get_field_definition(file_global, field_number)
+          
+          # Remove old cross-reference if this field is indexed
+          if field_def[:indexed]
+            old_value = get_global(file_global, ien, field_number)
+            delete_cross_reference(file_global, field_number, old_value, ien) unless (old_value.nil? || old_value.empty?)
+          end
+          
+          # Set the new value
+          set_result = set_global(file_global, ien, field_number, value)
+          
+          # Build new cross-reference if this field is indexed
+          if field_def[:indexed] && set_result == "OK"
+            build_cross_reference(file_global, field_number, value, ien)
+          end
+          
+          {
+            success: set_result == "OK",
+            validation: validation_result
+          }
+        else
+          {
+            success: false,
+            validation: validation_result
+          }
+        end
+      end
+      
+      private
+      
+      def validate_data_type(value, type)
+        return true if value.nil? || value.to_s.empty?
+        
+        case type
+        when :string, :text
+          true
+        when :number, :numeric
+          value.to_s.match(/^\d+(\.\d+)?$/)
+        when :date
+          validate_fileman_date(value)
+        when :ssn
+          value.to_s.match(/^\d{9}$/)
+        when :name
+          value.to_s.match(/^[A-Z]+,[A-Z]+/)
+        when :phone
+          value.to_s.match(/^\d{10}$/) || value.to_s.match(/^\(\d{3}\)\s?\d{3}-\d{4}$/)
+        else
+          true
+        end
+      end
+      
+      def validate_fileman_date(value)
+        # FileMan internal date format: YYYMMDD (where YYY = year - 1700)
+        return false unless value.to_s.match(/^\d{7}$/)
+        
+        date_str = value.to_s
+        year = date_str[0,3].to_i + 1700
+        month = date_str[3,2].to_i
+        day = date_str[5,2].to_i
+        
+        return false if month < 1 || month > 12
+        return false if day < 1 || day > 31
+        return false if year < 1800 || year > 2200
+        
+        # More detailed date validation could be added here
+        true
+      end
+      
+      def get_field_definition(file_global, field_number)
+        # In real FileMan, this would come from ^DD global
+        # For now, return healthcare-specific field definitions
+        field_definitions(file_global)[field_number] || default_field_definition
+      end
+      
+      def field_definitions(file_global)
+        # Healthcare field definitions (simulating ^DD global)
+        case file_global
+        when 'DPT', 'PATIENT'
+          {
+            '.01' => {
+              name: 'NAME',
+              type: :name,
+              required: true,
+              max_length: 30,
+              pattern: /^[A-Z]+,[A-Z]+/,
+              indexed: true,
+              unique: false
+            },
+            '.02' => {
+              name: 'SEX',
+              type: :string,
+              required: true,
+              max_length: 1,
+              pattern: /^[MF]$/,
+              indexed: false,
+              unique: false
+            },
+            '.03' => {
+              name: 'DATE OF BIRTH',
+              type: :date,
+              required: true,
+              max_length: 7,
+              indexed: false,
+              unique: false
+            },
+            '.09' => {
+              name: 'SOCIAL SECURITY NUMBER',
+              type: :ssn,
+              required: false,
+              max_length: 9,
+              pattern: /^\d{9}$/,
+              indexed: true,
+              unique: true
+            },
+            '.13' => {
+              name: 'PHONE NUMBER',
+              type: :phone,
+              required: false,
+              max_length: 15,
+              indexed: false,
+              unique: false
+            }
+          }
+        else
+          {}
+        end
+      end
+      
+      def default_field_definition
+        {
+          name: 'UNKNOWN FIELD',
+          type: :string,
+          required: false,
+          max_length: 255,
+          indexed: false,
+          unique: false
+        }
+      end
+      
+      def validate_cross_fields(file_global, data, ien)
+        # Cross-field validation rules
+        errors = []
+        
+        case file_global
+        when 'DPT', 'PATIENT'
+          # Healthcare-specific cross-field validations
+          
+          # Date of birth should not be in the future
+          if data['.03']
+            dob_internal = data['.03'].to_s
+            if validate_fileman_date(dob_internal)
+              dob_year = dob_internal[0,3].to_i + 1700
+              current_year = Time.now.year
+              if dob_year > current_year
+                errors << "Date of birth cannot be in the future"
+              end
+              if dob_year < current_year - 150
+                errors << "Date of birth indicates age over 150 years"
+              end
+            end
+          end
+          
+          # Name and SSN combination should be logical
+          if data['.01'] && data['.09']
+            name = data['.01'].to_s
+            ssn = data['.09'].to_s
+            
+            # Basic check: ensure name has reasonable format with SSN
+            if name.length < 5 && ssn.length == 9
+              errors << "Name appears too short for a patient with SSN"
+            end
+          end
+        end
+        
+        errors
+      end
+      
+      public
+
+      # === FileMan Date/Time Utilities ===
+      
+      def fileman_today
+        # Return today's date in FileMan internal format (YYYMMDD)
+        today = Time.now
+        year_offset = today.year - 1700
+        sprintf("%03d%02d%02d", year_offset, today.month, today.day)
+      end
+      
+      def fileman_now
+        # Return current date/time in FileMan format (YYYMMDD.HHMMSS)
+        now = Time.now
+        year_offset = now.year - 1700
+        date_part = sprintf("%03d%02d%02d", year_offset, now.month, now.day)
+        time_part = sprintf("%02d%02d%02d", now.hour, now.min, now.sec)
+        "#{date_part}.#{time_part}"
+      end
+      
+      def parse_fileman_date(fileman_date)
+        # Convert FileMan internal date to Ruby Date object
+        return nil unless validate_fileman_date(fileman_date)
+        
+        date_str = fileman_date.to_s
+        year = date_str[0,3].to_i + 1700
+        month = date_str[3,2].to_i
+        day = date_str[5,2].to_i
+        
+        begin
+          Date.new(year, month, day)
+        rescue
+          nil
+        end
+      end
+      
+      def parse_fileman_datetime(fileman_datetime)
+        # Convert FileMan internal date/time to Ruby Time object
+        parts = fileman_datetime.to_s.split('.')
+        date_part = parts[0]
+        time_part = parts[1] || "000000"
+        
+        return nil unless validate_fileman_date(date_part)
+        
+        year = date_part[0,3].to_i + 1700
+        month = date_part[3,2].to_i
+        day = date_part[5,2].to_i
+        
+        hour = time_part[0,2].to_i
+        minute = time_part[2,2].to_i
+        second = time_part[4,2].to_i
+        
+        begin
+          Time.new(year, month, day, hour, minute, second)
+        rescue
+          nil
+        end
+      end
+      
+      def format_external_date(fileman_date, format = :standard)
+        # Convert FileMan date to human-readable format
+        ruby_date = parse_fileman_date(fileman_date)
+        return "" unless ruby_date
+        
+        case format
+        when :standard
+          ruby_date.strftime("%m/%d/%Y")
+        when :long
+          ruby_date.strftime("%B %d, %Y")
+        when :short
+          ruby_date.strftime("%m/%d/%y")
+        when :iso
+          ruby_date.strftime("%Y-%m-%d")
+        when :fileman_external
+          # FileMan external format: MMM DD,YYYY
+          ruby_date.strftime("%b %d,%Y").upcase
+        else
+          ruby_date.strftime("%m/%d/%Y")
+        end
+      end
+      
+      def date_add_days(fileman_date, days)
+        # Add days to a FileMan date
+        ruby_date = parse_fileman_date(fileman_date)
+        return "" unless ruby_date
+        
+        new_date = ruby_date + days
+        year_offset = new_date.year - 1700
+        sprintf("%03d%02d%02d", year_offset, new_date.month, new_date.day)
+      end
+      
+      def date_diff_days(fileman_date1, fileman_date2)
+        # Calculate difference in days between two FileMan dates
+        date1 = parse_fileman_date(fileman_date1)
+        date2 = parse_fileman_date(fileman_date2)
+        
+        return nil unless date1 && date2
+        (date2 - date1).to_i
+      end
+      
+      def age_in_years(birth_date, as_of_date = nil)
+        # Calculate age in years from FileMan birth date
+        birth = parse_fileman_date(birth_date)
+        return nil unless birth
+        
+        as_of = as_of_date ? parse_fileman_date(as_of_date) : Date.today
+        return nil unless as_of
+        
+        age = as_of.year - birth.year
+        age -= 1 if as_of < birth + age * 365  # Approximate birthday check
+        age
+      end
+      
+      def convert_external_date(external_date)
+        # Convert various external date formats to FileMan internal
+        return "" if external_date.nil? || external_date.to_s.strip.empty?
+        
+        date_str = external_date.to_s.strip
+        ruby_date = nil
+        
+        # Try different common formats
+        patterns = [
+          ['%m/%d/%Y', date_str],      # MM/DD/YYYY
+          ['%m/%d/%y', date_str],      # MM/DD/YY
+          ['%m-%d-%Y', date_str],      # MM-DD-YYYY
+          ['%Y-%m-%d', date_str],      # YYYY-MM-DD (ISO)
+          ['%b %d,%Y', date_str],      # MMM DD,YYYY
+          ['%B %d, %Y', date_str]      # Month DD, YYYY
+        ]
+        
+        patterns.each do |pattern, str|
+          begin
+            ruby_date = Date.strptime(str, pattern)
+            break
+          rescue
+            next
+          end
+        end
+        
+        return "" unless ruby_date
+        
+        # Convert to FileMan format
+        year_offset = ruby_date.year - 1700
+        sprintf("%03d%02d%02d", year_offset, ruby_date.month, ruby_date.day)
+      end
+      
+      def validate_date_range(start_date, end_date)
+        # Validate that date range is logical
+        start_ruby = parse_fileman_date(start_date)
+        end_ruby = parse_fileman_date(end_date)
+        
+        return { valid: false, error: "Invalid start date" } unless start_ruby
+        return { valid: false, error: "Invalid end date" } unless end_ruby
+        return { valid: false, error: "End date must be after start date" } if end_ruby < start_ruby
+        
+        { valid: true, error: nil }
+      end
+
       # FileBot no longer executes MUMPS/ObjectScript code
       # All business logic is now implemented in Ruby
       # IRIS is used as pure data layer only
