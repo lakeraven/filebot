@@ -73,24 +73,23 @@ module FileBot
 
       def order_global(global, *subscripts)
         return "" if @iris_native.nil?
-        
-        direction = subscripts.last.is_a?(Integer) ? subscripts.pop : 1
-        
-        # Use Native SDK iterator methods
         begin
           clean_global = global.sub(/^\^/, '')
           
-          iter = subscripts.empty? ? @iris_native.iterator(clean_global) : @iris_native.iterator(clean_global, *subscripts)
-          if iter && iter.hasNext
-            next_val = iter.next
-            puts 'ORDER next: ' + next_val.to_s if ENV['FILEBOT_DEBUG']
-            next_val
+          # Use IRIS Java Native SDK iterator approach
+          iterator = @iris_native.getIRISIterator(clean_global, *subscripts)
+          
+          if iterator.hasNext
+            iterator.next
+            next_sub = iterator.getSubscriptValue
+            puts "ORDER next (iterator): #{next_sub}" if ENV['FILEBOT_DEBUG']
+            next_sub.to_s
           else
-            puts 'ORDER failed or no next for ' + clean_global + ' ' + subscripts.inspect if ENV['FILEBOT_DEBUG']
+            puts "ORDER next (iterator): no more subscripts" if ENV['FILEBOT_DEBUG']
             ""
           end
         rescue => e
-          puts 'ORDER error: ' + e.message if ENV['FILEBOT_DEBUG']
+          puts "ORDER error: #{e.message}" if ENV['FILEBOT_DEBUG']
           ""
         end
       end
@@ -99,11 +98,37 @@ module FileBot
         return 0 if @iris_native.nil?
         begin
           clean_global = global.sub(/^\^/, '')
-          defined = subscripts.empty? ? @iris_native.isDefined(clean_global) : @iris_native.isDefined(clean_global, *subscripts)
-          puts 'DATA for ' + clean_global + ' ' + subscripts.inspect + ': ' + defined.to_s if ENV['FILEBOT_DEBUG']
-          defined ? 1 : 0
+          
+          # Check if the node has a value
+          has_value = false
+          has_descendants = false
+          
+          begin
+            val = if subscripts.empty?
+              @iris_native.getString(clean_global)
+            else
+              @iris_native.getString(clean_global, *subscripts)
+            end
+            has_value = !(val.nil? || val == "")
+          rescue => e
+            puts "DATA value check error: #{e.message}" if ENV['FILEBOT_DEBUG']
+          end
+          
+          # Check if the node has descendants using iterator
+          begin
+            iterator = @iris_native.getIRISIterator(clean_global, *subscripts)
+            has_descendants = iterator.hasNext
+          rescue => e
+            puts "DATA descendant check error: #{e.message}" if ENV['FILEBOT_DEBUG']
+          end
+          
+          data_val = 0
+          data_val += 1 if has_value
+          data_val += 10 if has_descendants
+          puts "DATA for #{clean_global} #{subscripts.inspect}: #{data_val}" if ENV['FILEBOT_DEBUG']
+          data_val
         rescue => e
-          puts 'DATA error: ' + e.message if ENV['FILEBOT_DEBUG']
+          puts "DATA error: #{e.message}" if ENV['FILEBOT_DEBUG']
           0
         end
       end
@@ -134,6 +159,18 @@ module FileBot
 
       def connected?
         !@iris_native.nil? && !@jdbc_connection.nil? && !@jdbc_connection.isClosed rescue false
+      end
+
+      # === Benchmark Compatibility Methods ===
+      
+      # Wrapper for order_global to match benchmark expectations
+      def get_next_global(global, *subscripts)
+        order_global(global, *subscripts)
+      end
+      
+      # Wrapper for data_global to match benchmark expectations  
+      def global_exists(global, *subscripts)
+        data_global(global, *subscripts) > 0
       end
 
       # FileBot no longer executes MUMPS/ObjectScript code
