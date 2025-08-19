@@ -469,6 +469,12 @@ module FileBot
         end
       end
       
+      def get_field_definition(file_global, field_number)
+        # In real FileMan, this would come from ^DD global
+        # For now, return healthcare-specific field definitions
+        field_definitions(file_global)[field_number] || default_field_definition
+      end
+      
       private
       
       def validate_data_type(value, type)
@@ -509,12 +515,6 @@ module FileBot
         true
       end
       
-      def get_field_definition(file_global, field_number)
-        # In real FileMan, this would come from ^DD global
-        # For now, return healthcare-specific field definitions
-        field_definitions(file_global)[field_number] || default_field_definition
-      end
-      
       def field_definitions(file_global)
         # Healthcare field definitions (simulating ^DD global)
         case file_global
@@ -527,7 +527,9 @@ module FileBot
               max_length: 30,
               pattern: /^[A-Z]+,[A-Z]+/,
               indexed: true,
-              unique: false
+              unique: false,
+              input_transform: :name_format,
+              output_transform: :name_display
             },
             '.02' => {
               name: 'SEX',
@@ -536,7 +538,9 @@ module FileBot
               max_length: 1,
               pattern: /^[MF]$/,
               indexed: false,
-              unique: false
+              unique: false,
+              input_transform: :uppercase,
+              output_transform: :none
             },
             '.03' => {
               name: 'DATE OF BIRTH',
@@ -544,7 +548,9 @@ module FileBot
               required: true,
               max_length: 7,
               indexed: false,
-              unique: false
+              unique: false,
+              input_transform: :date_format,
+              output_transform: :date_display
             },
             '.09' => {
               name: 'SOCIAL SECURITY NUMBER',
@@ -553,7 +559,9 @@ module FileBot
               max_length: 9,
               pattern: /^\d{9}$/,
               indexed: true,
-              unique: true
+              unique: true,
+              input_transform: :ssn_format,
+              output_transform: :ssn_display
             },
             '.13' => {
               name: 'PHONE NUMBER',
@@ -561,7 +569,9 @@ module FileBot
               required: false,
               max_length: 15,
               indexed: false,
-              unique: false
+              unique: false,
+              input_transform: :phone_format,
+              output_transform: :phone_display
             }
           }
         else
@@ -741,12 +751,22 @@ module FileBot
         # Try different common formats
         patterns = [
           ['%m/%d/%Y', date_str],      # MM/DD/YYYY
-          ['%m/%d/%y', date_str],      # MM/DD/YY
           ['%m-%d-%Y', date_str],      # MM-DD-YYYY
           ['%Y-%m-%d', date_str],      # YYYY-MM-DD (ISO)
           ['%b %d,%Y', date_str],      # MMM DD,YYYY
           ['%B %d, %Y', date_str]      # Month DD, YYYY
         ]
+        
+        # Handle 2-digit years specially
+        if date_str.match(/^\d{1,2}\/\d{1,2}\/\d{2}$/)
+          # MM/DD/YY format - need to interpret 2-digit year
+          parts = date_str.split('/')
+          year_2digit = parts[2].to_i
+          # Assume 00-30 is 2000s, 31-99 is 1900s
+          full_year = year_2digit <= 30 ? 2000 + year_2digit : 1900 + year_2digit
+          date_str = "#{parts[0]}/#{parts[1]}/#{full_year}"
+          patterns << ['%m/%d/%Y', date_str]
+        end
         
         patterns.each do |pattern, str|
           begin
@@ -775,6 +795,175 @@ module FileBot
         
         { valid: true, error: nil }
       end
+
+      # === FileMan Input/Output Transforms ===
+      
+      def apply_input_transform(file_global, field_number, value)
+        # Apply FileMan input transform to convert external to internal format
+        return value if value.nil? || value.to_s.strip.empty?
+        
+        field_def = get_field_definition(file_global, field_number)
+        transform_type = field_def[:input_transform] || :none
+        
+        case transform_type
+        when :none
+          value.to_s
+        when :uppercase
+          value.to_s.upcase
+        when :name_format
+          format_name_input(value.to_s)
+        when :ssn_format
+          format_ssn_input(value.to_s)
+        when :phone_format
+          format_phone_input(value.to_s)
+        when :date_format
+          convert_external_date(value.to_s)
+        when :numeric_format
+          format_numeric_input(value.to_s)
+        when :remove_punctuation
+          value.to_s.gsub(/[^\w\s]/, '').strip
+        when :custom
+          if field_def[:custom_input_transform]
+            field_def[:custom_input_transform].call(value.to_s)
+          else
+            value.to_s
+          end
+        else
+          value.to_s
+        end
+      end
+      
+      def apply_output_transform(file_global, field_number, internal_value)
+        # Apply FileMan output transform to convert internal to external format
+        return "" if internal_value.nil? || internal_value.to_s.strip.empty?
+        
+        field_def = get_field_definition(file_global, field_number)
+        transform_type = field_def[:output_transform] || :none
+        
+        case transform_type
+        when :none
+          internal_value.to_s
+        when :name_display
+          format_name_output(internal_value.to_s)
+        when :ssn_display
+          format_ssn_output(internal_value.to_s)
+        when :phone_display
+          format_phone_output(internal_value.to_s)
+        when :date_display
+          format_external_date(internal_value.to_s, :standard)
+        when :date_long
+          format_external_date(internal_value.to_s, :long)
+        when :yes_no
+          internal_value.to_s == "1" ? "YES" : "NO"
+        when :currency
+          format_currency_output(internal_value.to_s)
+        when :custom
+          if field_def[:custom_output_transform]
+            field_def[:custom_output_transform].call(internal_value.to_s)
+          else
+            internal_value.to_s
+          end
+        else
+          internal_value.to_s
+        end
+      end
+      
+      def transformed_set_global(file_global, ien, field_number, external_value)
+        # Set global with input transform applied
+        internal_value = apply_input_transform(file_global, field_number, external_value)
+        safe_set_global(file_global, ien, field_number, internal_value)
+      end
+      
+      def transformed_get_global(file_global, ien, field_number)
+        # Get global with output transform applied
+        internal_value = get_global(file_global, ien, field_number)
+        apply_output_transform(file_global, field_number, internal_value)
+      end
+      
+      private
+      
+      def format_name_input(name_str)
+        # Convert name to FileMan standard format: LAST,FIRST MIDDLE
+        cleaned = name_str.strip.upcase
+        
+        # Handle various input formats
+        if cleaned.include?(',')
+          # Already in LAST,FIRST format
+          parts = cleaned.split(',')
+          last = parts[0].strip
+          first = parts[1].strip if parts[1]
+          "#{last},#{first}"
+        elsif cleaned.include?(' ')
+          # Assume FIRST LAST or FIRST MIDDLE LAST format
+          parts = cleaned.split(' ')
+          if parts.length == 2
+            "#{parts[1]},#{parts[0]}"  # FIRST LAST -> LAST,FIRST
+          else
+            last = parts.last
+            first_middle = parts[0..-2].join(' ')
+            "#{last},#{first_middle}"
+          end
+        else
+          # Single name - assume it's the last name
+          "#{cleaned},"
+        end
+      end
+      
+      def format_name_output(internal_name)
+        # Convert internal name to display format: FIRST LAST
+        return "" if internal_name.empty?
+        
+        if internal_name.include?(',')
+          parts = internal_name.split(',')
+          last = parts[0].strip
+          first = parts[1].strip if parts[1]
+          first ? "#{first} #{last}" : last
+        else
+          internal_name
+        end
+      end
+      
+      def format_ssn_input(ssn_str)
+        # Remove formatting and return 9 digits
+        digits_only = ssn_str.gsub(/\D/, '')
+        digits_only.length == 9 ? digits_only : ssn_str
+      end
+      
+      def format_ssn_output(internal_ssn)
+        # Format SSN for display: XXX-XX-XXXX
+        return "" if internal_ssn.length != 9
+        "#{internal_ssn[0,3]}-#{internal_ssn[3,2]}-#{internal_ssn[5,4]}"
+      end
+      
+      def format_phone_input(phone_str)
+        # Remove formatting and return 10 digits
+        digits_only = phone_str.gsub(/\D/, '')
+        digits_only.length == 10 ? digits_only : phone_str
+      end
+      
+      def format_phone_output(internal_phone)
+        # Format phone for display: (XXX) XXX-XXXX
+        return "" if internal_phone.length != 10
+        "(#{internal_phone[0,3]}) #{internal_phone[3,3]}-#{internal_phone[6,4]}"
+      end
+      
+      def format_numeric_input(numeric_str)
+        # Clean numeric input
+        cleaned = numeric_str.gsub(/[^\d.]/, '')
+        cleaned.empty? ? "0" : cleaned
+      end
+      
+      def format_currency_output(internal_value)
+        # Format currency for display: $X,XXX.XX
+        begin
+          amount = Float(internal_value)
+          "$#{sprintf('%.2f', amount)}"
+        rescue
+          internal_value
+        end
+      end
+      
+      public
 
       # FileBot no longer executes MUMPS/ObjectScript code
       # All business logic is now implemented in Ruby
