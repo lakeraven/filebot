@@ -76,16 +76,39 @@ module FileBot
         begin
           clean_global = global.sub(/^\^/, '')
           
-          # Use IRIS Java Native SDK iterator approach
-          iterator = @iris_native.getIRISIterator(clean_global, *subscripts)
+          # Use IRIS Native SDK's built-in iterator for $ORDER functionality
+          iterator = @iris_native.getIRISIterator(clean_global)
           
-          if iterator.hasNext
-            iterator.next
-            next_sub = iterator.getSubscriptValue
-            puts "ORDER next (iterator): #{next_sub}" if ENV['FILEBOT_DEBUG']
-            next_sub.to_s
+          # For $ORDER(global, current_subscript), we need to find the next one
+          if subscripts.empty? || subscripts.first == "0"
+            # Get first subscript
+            if iterator.hasNext
+              iterator.next
+              next_sub = iterator.getSubscriptValue
+              puts "ORDER next (first): #{next_sub}" if ENV['FILEBOT_DEBUG']
+              next_sub.to_s
+            else
+              puts "ORDER next: no subscripts found" if ENV['FILEBOT_DEBUG']
+              ""
+            end
           else
-            puts "ORDER next (iterator): no more subscripts" if ENV['FILEBOT_DEBUG']
+            # Find next subscript after the current one
+            target = subscripts.first.to_s
+            found_target = false
+            
+            while iterator.hasNext
+              iterator.next
+              current_sub = iterator.getSubscriptValue.to_s
+              
+              if found_target
+                puts "ORDER next: #{current_sub}" if ENV['FILEBOT_DEBUG']
+                return current_sub
+              elsif current_sub == target
+                found_target = true
+              end
+            end
+            
+            puts "ORDER next: no more subscripts after #{target}" if ENV['FILEBOT_DEBUG']
             ""
           end
         rescue => e
