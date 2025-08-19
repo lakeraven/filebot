@@ -3,8 +3,8 @@
 # Simple gem validation script without test framework dependencies
 require_relative '../lib/filebot'
 
-puts "🎯 FileBot Gem Validation - Architectural Refactoring"
-puts "=" * 70
+puts "🎯 FileBot Production Gem Validation"
+puts "=" * 40
 
 # Mock adapter for testing
 class MockAdapter

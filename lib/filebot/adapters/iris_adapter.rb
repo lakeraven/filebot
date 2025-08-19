@@ -18,12 +18,7 @@ module FileBot
           # Convert ^GLOBAL format to just GLOBAL for Native SDK
           clean_global = global.sub(/^\^/, '')
           
-          # Validate global name (IRIS doesn't allow underscores in many contexts)
-          if clean_global.include?('_')
-            puts "FileBot: Warning - global name '#{clean_global}' contains underscore, may cause IRIS syntax errors" if ENV['FILEBOT_DEBUG']
-            # Convert underscores to valid characters for IRIS
-            clean_global = clean_global.gsub('_', 'X')
-          end
+          validate_global_name(clean_global)
           
           if subscripts.empty?
             # Get global root
@@ -33,7 +28,7 @@ module FileBot
             @iris_native.getString(clean_global, *subscripts)
           end
         rescue => e
-          puts "FileBot: Global GET failed: #{e.message}" if ENV['FILEBOT_DEBUG']
+          handle_error("Global GET failed", e)
           ""
         end
       end
@@ -49,12 +44,7 @@ module FileBot
           # Convert ^GLOBAL format to just GLOBAL for Native SDK
           clean_global = global.sub(/^\^/, '')
           
-          # Validate global name (IRIS doesn't allow underscores in many contexts)
-          if clean_global.include?('_')
-            puts "FileBot: Warning - global name '#{clean_global}' contains underscore, may cause IRIS syntax errors" if ENV['FILEBOT_DEBUG']
-            # Convert underscores to valid characters for IRIS
-            clean_global = clean_global.gsub('_', 'X')
-          end
+          validate_global_name(clean_global)
           
           if subscripts.empty?
             # Set global root
@@ -66,7 +56,7 @@ module FileBot
           
           "OK"
         rescue => e
-          puts "FileBot: Global SET failed: #{e.message}" if ENV['FILEBOT_DEBUG']
+          handle_error("Global SET failed", e)
           ""
         end
       end
@@ -80,7 +70,6 @@ module FileBot
           
           # Validate global name
           if clean_global.include?('_')
-            puts "FileBot: Warning - global name '#{clean_global}' contains underscore, may cause IRIS syntax errors" if ENV['FILEBOT_DEBUG']
             clean_global = clean_global.gsub('_', 'X')
           end
           
@@ -95,7 +84,7 @@ module FileBot
           puts "KILL(#{clean_global}#{subscripts.empty? ? '' : ','+subscripts.join(',')}) successful" if ENV['FILEBOT_DEBUG']
           true
         rescue => e
-          puts "FileBot: Global KILL failed: #{e.message}" if ENV['FILEBOT_DEBUG']
+          handle_error("Global KILL failed", e)
           false
         end
       end
@@ -1291,13 +1280,13 @@ module FileBot
           result = @iris_native.classMethodValue("%SYSTEM.Process", "Evaluate", mumps_code)
           result.toString
         rescue => e
-          puts "FileBot: ObjectScript execution failed: #{e.message}" if ENV['FILEBOT_DEBUG']
+          handle_error("ObjectScript execution failed", e)
           # Fallback: try direct routine execution if available
           begin
             # Alternative: use procedure call for FileMan routines
             @iris_native.procedure("FileManCall", mumps_code)
           rescue => e2
-            puts "FileBot: Fallback execution failed: #{e2.message}" if ENV['FILEBOT_DEBUG']
+            handle_error("Fallback execution failed", e2)
             ""
           end
         end
@@ -1368,7 +1357,6 @@ module FileBot
         java_import "com.intersystems.jdbc.IRIS"  # Native SDK class
         java_import "java.util.Properties"
 
-        puts "FileBot: Establishing IRIS Native SDK connection" if ENV['FILEBOT_DEBUG']
 
         # Get credentials from environment configuration
         iris_config = get_iris_credentials
@@ -1385,8 +1373,6 @@ module FileBot
         # Step 2: Create Native SDK object from JDBC connection
         @iris_native = IRIS.createIRIS(@jdbc_connection)
 
-        puts "FileBot: IRIS Native SDK connection established to #{iris_config[:host]}:#{iris_config[:port]}" if ENV['FILEBOT_DEBUG']
-        puts "FileBot: Native SDK object: #{@iris_native.class.name}" if ENV['FILEBOT_DEBUG']
       end
 
       def get_iris_credentials
