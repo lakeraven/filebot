@@ -71,17 +71,43 @@ module FileBot
         end
       end
 
+      def kill_global(global, *subscripts)
+        return false if @iris_native.nil?
+        
+        begin
+          # Convert ^GLOBAL format to just GLOBAL for Native SDK
+          clean_global = global.sub(/^\^/, '')
+          
+          # Validate global name
+          if clean_global.include?('_')
+            puts "FileBot: Warning - global name '#{clean_global}' contains underscore, may cause IRIS syntax errors" if ENV['FILEBOT_DEBUG']
+            clean_global = clean_global.gsub('_', 'X')
+          end
+          
+          if subscripts.empty?
+            # Kill entire global
+            @iris_native.kill(clean_global)
+          else
+            # Kill specific subscripted node
+            @iris_native.kill(clean_global, *subscripts)
+          end
+          
+          puts "KILL(#{clean_global}#{subscripts.empty? ? '' : ','+subscripts.join(',')}) successful" if ENV['FILEBOT_DEBUG']
+          true
+        rescue => e
+          puts "FileBot: Global KILL failed: #{e.message}" if ENV['FILEBOT_DEBUG']
+          false
+        end
+      end
+
       def order_global(global, *subscripts)
         return "" if @iris_native.nil?
         begin
           clean_global = global.sub(/^\^/, '')
           
-          # Use IRIS Native SDK's built-in iterator for $ORDER functionality
-          iterator = @iris_native.getIRISIterator(clean_global)
-          
-          # For $ORDER(global, current_subscript), we need to find the next one
-          if subscripts.empty? || subscripts.first == "0"
-            # Get first subscript
+          if subscripts.empty?
+            # Get first subscript at root level
+            iterator = @iris_native.getIRISIterator(clean_global)
             if iterator.hasNext
               iterator.next
               next_sub = iterator.getSubscriptValue
@@ -92,27 +118,84 @@ module FileBot
               ""
             end
           else
-            # Find next subscript after the current one
-            target = subscripts.first.to_s
-            found_target = false
+            # Handle multi-level subscripts
+            last_subscript = subscripts.last
+            parent_subscripts = subscripts[0..-2]
             
-            while iterator.hasNext
-              iterator.next
-              current_sub = iterator.getSubscriptValue.to_s
-              
-              if found_target
-                puts "ORDER next: #{current_sub}" if ENV['FILEBOT_DEBUG']
-                return current_sub
-              elsif current_sub == target
-                found_target = true
+            if last_subscript == "0"
+              # Get first subscript at this level
+              iterator = if parent_subscripts.empty?
+                @iris_native.getIRISIterator(clean_global)
+              else
+                @iris_native.getIRISIterator(clean_global, *parent_subscripts)
               end
+              
+              if iterator.hasNext
+                iterator.next
+                next_sub = iterator.getSubscriptValue
+                puts "ORDER next (first at level): #{next_sub}" if ENV['FILEBOT_DEBUG']
+                next_sub.to_s
+              else
+                puts "ORDER next: no subscripts at level" if ENV['FILEBOT_DEBUG']
+                ""
+              end
+            else
+              # Find next subscript after the current one at this level
+              iterator = if parent_subscripts.empty?
+                @iris_native.getIRISIterator(clean_global)
+              else
+                @iris_native.getIRISIterator(clean_global, *parent_subscripts)
+              end
+              
+              found_target = false
+              while iterator.hasNext
+                iterator.next
+                current_sub = iterator.getSubscriptValue.to_s
+                
+                if found_target
+                  puts "ORDER next: #{current_sub}" if ENV['FILEBOT_DEBUG']
+                  return current_sub
+                elsif current_sub == last_subscript
+                  found_target = true
+                end
+              end
+              
+              puts "ORDER next: no more subscripts after #{last_subscript}" if ENV['FILEBOT_DEBUG']
+              ""
             end
-            
-            puts "ORDER next: no more subscripts after #{target}" if ENV['FILEBOT_DEBUG']
-            ""
           end
         rescue => e
           puts "ORDER error: #{e.message}" if ENV['FILEBOT_DEBUG']
+          ""
+        end
+      end
+
+      def query_global(global, *subscripts)
+        return "" if @iris_native.nil?
+        begin
+          clean_global = global.sub(/^\^/, '')
+          
+          # $QUERY returns the next global reference in collating sequence
+          # This provides more powerful traversal than $ORDER
+          if subscripts.empty?
+            # Query at global level
+            query_result = @iris_native.queryGet(clean_global)
+          else
+            # Query with specific subscripts
+            query_result = @iris_native.queryGet(clean_global, *subscripts)
+          end
+          
+          # Extract the next reference from query result
+          if query_result && query_result.hasNext
+            next_ref = query_result.nextSubscript
+            puts "QUERY next: #{next_ref}" if ENV['FILEBOT_DEBUG']
+            next_ref.to_s
+          else
+            puts "QUERY: no more references" if ENV['FILEBOT_DEBUG']
+            ""
+          end
+        rescue => e
+          puts "QUERY error: #{e.message}" if ENV['FILEBOT_DEBUG']
           ""
         end
       end
@@ -213,6 +296,60 @@ module FileBot
       # Wrapper for data_global to match benchmark expectations  
       def global_exists(global, *subscripts)
         data_global(global, *subscripts) > 0
+      end
+
+      # === Cross-Reference Support (FileMan B Index) ===
+      
+      def build_cross_reference(file_global, field, value, ien)
+        # Create standard FileMan B index: ^GLOBAL("B",VALUE,IEN)=""
+        begin
+          set_global(file_global, "B", value, ien, "")
+          puts "Cross-reference built: #{file_global}(\"B\",\"#{value}\",#{ien})" if ENV['FILEBOT_DEBUG']
+          true
+        rescue => e
+          puts "Cross-reference build failed: #{e.message}" if ENV['FILEBOT_DEBUG']
+          false
+        end
+      end
+      
+      def find_by_cross_reference(file_global, field, value)
+        # Use FileMan B index to find records: ^GLOBAL("B",VALUE,IEN)
+        results = []
+        begin
+          # Check if this value exists in the cross-reference
+          data_val = data_global(file_global, "B", value)
+          if data_val >= 10
+            # Walk through all IENs for this value
+            current_ien = "0"
+            while true
+              next_ien = order_global(file_global, "B", value, current_ien)
+              break if next_ien.empty?
+              
+              # Verify this is actually an IEN (not another value)
+              if next_ien.match(/^\d+$/)
+                results << next_ien
+              end
+              current_ien = next_ien
+              break if results.length > 100  # Safety limit
+            end
+          end
+        rescue => e
+          puts "Cross-reference lookup failed: #{e.message}" if ENV['FILEBOT_DEBUG']
+        end
+        
+        results
+      end
+      
+      def delete_cross_reference(file_global, field, value, ien)
+        # Remove from FileMan B index
+        begin
+          kill_global(file_global, "B", value, ien)
+          puts "Cross-reference deleted: #{file_global}(\"B\",\"#{value}\",#{ien})" if ENV['FILEBOT_DEBUG']
+          true
+        rescue => e
+          puts "Cross-reference delete failed: #{e.message}" if ENV['FILEBOT_DEBUG']
+          false
+        end
       end
 
       # FileBot no longer executes MUMPS/ObjectScript code
