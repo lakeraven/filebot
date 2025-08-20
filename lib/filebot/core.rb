@@ -2,6 +2,7 @@
 
 require 'thread'
 require 'monitor'
+require_relative 'models/patient'
 
 module FileBot
   # High-performance core FileBot class with integrated optimization features
@@ -42,15 +43,12 @@ module FileBot
         
         @perf_stats[:cache_misses] += 1
         
-        # Get from database with connection pooling
+        # Use Patient model (Ruby business logic) instead of MUMPS FileMan
         result = @connection_pool.with_connection do |conn|
           begin
-            data = conn.get_global("^DPT", dfn.to_s, "0")
-            return nil if data.nil? || data.empty?
-            
-            PatientParser.parse_zero_node(dfn, data)
+            patient = Models::Patient.find(dfn, conn)
+            patient ? patient.clinical_summary[:demographics] : nil
           rescue => e
-            puts "FileBot: Patient lookup failed: #{e.message}" if ENV['FILEBOT_DEBUG']
             nil
           end
         end
@@ -111,8 +109,35 @@ module FileBot
           search_patients_cached(name_pattern, options)
         else
           @perf_stats[:native_queries] += 1
-          search_patients_native(name_pattern, options)
+          search_patients_native_ruby(name_pattern, options)
         end
+      end
+    end
+    
+    # Create new patient (Ruby business logic replaces FileMan FILE^DIE)
+    def create_patient(attributes)
+      track_performance("create_patient") do
+        result = @connection_pool.with_connection do |conn|
+          begin
+            patient = Models::Patient.create(attributes, conn)
+            
+            # Clear any cached patient data
+            @cache.delete("patient:#{patient.dfn}")
+            @cache.delete("clinical_summary:#{patient.dfn}")
+            
+            demographics = patient.clinical_summary[:demographics]
+            {
+              dfn: patient.dfn,
+              success: true,
+              patient: demographics
+            }
+          rescue => e
+            { success: false, error: e.message }
+          end
+        end
+        
+        @perf_stats[:patient_creations] += 1
+        result
       end
     end
 
@@ -129,14 +154,17 @@ module FileBot
         
         @perf_stats[:cache_misses] += 1
         
-        # Route complex query to SQL if available
-        result = if @query_router.should_use_sql_for_complex_query?
-          @perf_stats[:sql_queries] += 1
-          get_clinical_summary_sql(dfn)
-        else
-          @perf_stats[:native_queries] += 1
-          get_clinical_summary_native(dfn)
+        # Use Patient model (Ruby business logic) for clinical summary
+        result = @connection_pool.with_connection do |conn|
+          begin
+            patient = Models::Patient.find(dfn, conn)
+            patient ? patient.clinical_summary : nil
+          rescue => e
+            nil
+          end
         end
+        
+        @perf_stats[:native_queries] += 1
         
         # Cache with shorter TTL for clinical data
         if result
@@ -144,6 +172,184 @@ module FileBot
         end
         
         result
+      end
+    end
+
+    # === Priority 1: Extended CRUD Operations ===
+
+    # Delete patient record (replaces FileMan EN^DIEZ)
+    def delete_patient(dfn)
+      track_performance("delete_patient") do
+        result = @connection_pool.with_connection do |conn|
+          begin
+            Models::Patient.delete(dfn, conn)
+          rescue => e
+            { success: false, error: e.message }
+          end
+        end
+        
+        # Clear cache for deleted patient
+        invalidate_patient_cache(dfn) if result[:success]
+        
+        result
+      end
+    end
+
+    # Boolean search with AND/OR logic
+    def boolean_search(criteria)
+      track_performance("boolean_search") do
+        @connection_pool.with_connection do |conn|
+          begin
+            Models::Patient.boolean_search(criteria, conn)
+          rescue => e
+            []
+          end
+        end
+      end
+    end
+
+    # Range search operations
+    def range_search(field, range_criteria)
+      track_performance("range_search") do
+        @connection_pool.with_connection do |conn|
+          begin
+            Models::Patient.range_search(field, range_criteria, conn)
+          rescue => e
+            []
+          end
+        end
+      end
+    end
+
+    # Multiple field update
+    def update_multiple_fields(dfn, field_updates)
+      track_performance("update_multiple_fields") do
+        result = @connection_pool.with_connection do |conn|
+          begin
+            patient = Models::Patient.find(dfn, conn)
+            return { success: false, error: "Patient not found" } unless patient
+            
+            patient.update_multiple_fields(field_updates, conn)
+          rescue => e
+            { success: false, error: e.message }
+          end
+        end
+        
+        # Clear cache for updated patient
+        invalidate_patient_cache(dfn) if result[:success]
+        
+        result
+      end
+    end
+
+    # Rebuild cross-references
+    def rebuild_cross_references(dfn)
+      track_performance("rebuild_cross_references") do
+        @connection_pool.with_connection do |conn|
+          begin
+            Models::Patient.rebuild_cross_references(dfn, conn)
+          rescue => e
+            { success: false, error: e.message }
+          end
+        end
+      end
+    end
+
+    # === Priority 3: Healthcare-Specific Operations ===
+
+    # Allergy management
+    def manage_patient_allergies(patient_dfn, allergy_data)
+      track_performance("manage_patient_allergies") do
+        @connection_pool.with_connection do |conn|
+          begin
+            # Load allergy model
+            require_relative 'models/allergy'
+            
+            allergy = Models::Allergy.create(patient_dfn, allergy_data, conn)
+            interactions = Models::Allergy.check_interactions(patient_dfn, allergy_data[:allergen], conn)
+            
+            { success: true, allergy_ien: allergy.ien, interactions: interactions }
+          rescue => e
+            { success: false, error: e.message }
+          end
+        end
+      end
+    end
+
+    # Provider relationship validation
+    def validate_provider_relationship(patient_dfn, provider_ien)
+      track_performance("validate_provider_relationship") do
+        @connection_pool.with_connection do |conn|
+          begin
+            # Load provider model
+            require_relative 'models/provider'
+            
+            Models::Provider.validate_patient_provider_relationship(patient_dfn, provider_ien, conn)
+          rescue => e
+            { valid: false, error: e.message }
+          end
+        end
+      end
+    end
+
+    # Clinical decision support
+    def clinical_decision_support(patient_dfn, clinical_data = {})
+      track_performance("clinical_decision_support") do
+        @connection_pool.with_connection do |conn|
+          begin
+            patient = Models::Patient.find(patient_dfn, conn)
+            return { alerts: ["Patient not found"], recommendations: [] } unless patient
+
+            alerts = []
+            recommendations = []
+
+            # Age-based alerts
+            if patient.dob && (Date.today - patient.dob).to_i / 365 > 65
+              alerts << "Geriatric patient - consider age-appropriate protocols"
+            end
+
+            # Load and check allergies
+            require_relative 'models/allergy'
+            allergies = Models::Allergy.find_by_patient(patient_dfn, conn)
+            if allergies.any?
+              alerts << "Patient has #{allergies.length} known allergies"
+              recommendations << "Review allergy list before prescribing"
+            end
+
+            { alerts: alerts, recommendations: recommendations, patient_dfn: patient_dfn }
+          rescue => e
+            { alerts: ["Error: #{e.message}"], recommendations: [] }
+          end
+        end
+      end
+    end
+
+    # Medication interaction checking
+    def check_medication_interactions(patient_dfn, medication)
+      track_performance("check_medication_interactions") do
+        @connection_pool.with_connection do |conn|
+          begin
+            require_relative 'models/allergy'
+            
+            allergies = Models::Allergy.find_by_patient(patient_dfn, conn)
+            interactions = []
+
+            allergies.each do |allergy|
+              if medication[:name].upcase.include?(allergy.allergen.upcase)
+                interactions << {
+                  type: "allergy",
+                  allergen: allergy.allergen,
+                  medication: medication[:name],
+                  severity: allergy.severity
+                }
+              end
+            end
+
+            { interactions: interactions, severity: interactions.any? ? "high" : "none", safe: interactions.empty? }
+          rescue => e
+            { interactions: [], severity: "unknown", safe: false, error: e.message }
+          end
+        end
       end
     end
 
@@ -469,7 +675,6 @@ module FileBot
       duration = Time.now - start_time
       @perf_stats[:total_time] += duration
       
-      puts "FileBot performance error in #{operation_name}: #{error.message}" if ENV['FILEBOT_DEBUG']
     end
 
     def calculate_average_response_time
@@ -573,40 +778,25 @@ module FileBot
       cache_key = "search:#{name_pattern}:#{options.hash}"
       
       @cache.get_or_set(cache_key, ttl: @config[:search_cache_ttl] || 300) do
-        search_patients_native(name_pattern, options)
+        search_patients_native_ruby(name_pattern, options)
       end
     end
 
-    def search_patients_native(name_pattern, options)
+    # Ruby business logic search (replaces MUMPS FileMan FIND^DIC)
+    def search_patients_native_ruby(name_pattern, options)
       limit = options[:limit] || 10
-      patients = []
-      search_name = name_pattern.upcase
       
       @connection_pool.with_connection do |conn|
         begin
-          current_name = conn.order_global("^DPT", "B", search_name)
+          # Use Patient model's search method (Ruby business logic)
+          patients = Models::Patient.search_by_name(name_pattern, conn, limit)
           
-          while current_name && current_name.start_with?(search_name) && patients.length < limit
-            dfn_str = conn.order_global("^DPT", "B", current_name, "")
-            
-            if dfn_str && !dfn_str.empty?
-              dfn = dfn_str.to_i
-              if dfn > 0
-                data = conn.get_global("^DPT", dfn.to_s, "0")
-                if data && !data.empty?
-                  patients << PatientParser.parse_zero_node(dfn, data)
-                end
-              end
-            end
-            
-            current_name = conn.order_global("^DPT", "B", current_name)
-          end
+          # Return demographics data for compatibility
+          patients.map { |patient| patient.clinical_summary[:demographics] }
         rescue => e
-          puts "FileBot: Patient search failed: #{e.message}" if ENV['FILEBOT_DEBUG']
+          []
         end
       end
-      
-      patients
     end
 
     # === Clinical Summary Implementations ===

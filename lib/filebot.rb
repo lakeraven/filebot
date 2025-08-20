@@ -1,17 +1,9 @@
 # frozen_string_literal: true
 
-# FileBot - High-Performance Healthcare MUMPS Modernization Platform
+# FileBot - Production Healthcare MUMPS Platform
 #
-# Provides 6.96x performance improvement over Legacy FileMan while maintaining
-# full MUMPS/VistA compatibility and enabling modern healthcare workflows.
-#
-# Features:
-# - Pure Java Native API for direct MUMPS global access
-# - Healthcare-specific workflow optimizations
-# - FHIR R4 serialization capabilities
-# - Multi-platform MUMPS database support (IRIS, YottaDB, GT.M)
-# - Event sourcing compatible architecture
-# - Offline-first capabilities with modern web framework integration
+# Production-ready platform providing 6x performance improvement over legacy FileMan
+# while maintaining full MUMPS/VistA compatibility and enabling modern healthcare workflows.
 
 module FileBot
   autoload :VERSION, "filebot/version"

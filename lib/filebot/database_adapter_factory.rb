@@ -85,7 +85,6 @@ module FileBot
 
         # Use highest priority available adapter
         adapter_name = available.first
-        puts "FileBot: Auto-detected #{adapter_name} database" if ENV['FILEBOT_DEBUG']
         
         AdapterRegistry.create(adapter_name, config)
       end
@@ -104,17 +103,14 @@ module FileBot
       def legacy_auto_detect(config = {})
         # Try IRIS first (most common in healthcare)
         if iris_available?
-          puts "FileBot: Auto-detected IRIS database (legacy)" if ENV['FILEBOT_DEBUG']
           return AdapterRegistry.create(:iris, config) if AdapterRegistry.get(:iris)
         end
         
         if yottadb_available?
-          puts "FileBot: Auto-detected YottaDB (legacy)" if ENV['FILEBOT_DEBUG']
           return AdapterRegistry.create(:yottadb, config) if AdapterRegistry.get(:yottadb)
         end
         
         if gtm_available?
-          puts "FileBot: Auto-detected GT.M (legacy)" if ENV['FILEBOT_DEBUG']
           return AdapterRegistry.create(:gtm, config) if AdapterRegistry.get(:gtm)
         end
 

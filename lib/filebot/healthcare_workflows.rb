@@ -35,7 +35,6 @@ module FileBot
           medications: medication_data
         }
       rescue => e
-        puts "FileBot: Native medication ordering workflow failed: #{e.message}" if ENV['FILEBOT_DEBUG']
         { success: false, error: e.message }
       end
     end
@@ -56,7 +55,6 @@ module FileBot
 
         { success: true, lab_ien: lab_ien, patient: patient_data }
       rescue => e
-        puts "FileBot: Native lab entry workflow failed: #{e.message}" if ENV['FILEBOT_DEBUG']
         { success: false, error: e.message }
       end
     end
@@ -78,7 +76,6 @@ module FileBot
 
         { success: true, note_ien: note_ien, patient: patient_data }
       rescue => e
-        puts "FileBot: Native clinical documentation workflow failed: #{e.message}" if ENV['FILEBOT_DEBUG']
         { success: false, error: e.message }
       end
     end
@@ -119,7 +116,6 @@ module FileBot
 
         { success: true, summary: summary_data }
       rescue => e
-        puts "FileBot: Native discharge summary workflow failed: #{e.message}" if ENV['FILEBOT_DEBUG']
         { success: false, error: e.message }
       end
     end

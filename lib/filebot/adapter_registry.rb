@@ -27,14 +27,12 @@ module FileBot
           auto_detect: options[:auto_detect] || false
         }
 
-        puts "FileBot: Registered adapter '#{name}' (#{adapter_class})" if ENV['FILEBOT_DEBUG']
       end
 
       # Unregister an adapter
       # @param name [Symbol] Adapter identifier
       def unregister(name)
         removed = adapters.delete(name.to_sym)
-        puts "FileBot: Unregistered adapter '#{name}'" if removed && ENV['FILEBOT_DEBUG']
         removed
       end
 
@@ -93,7 +91,6 @@ module FileBot
       # Clear all registered adapters
       def clear!
         @adapters = {}
-        puts "FileBot: Cleared all adapter registrations" if ENV['FILEBOT_DEBUG']
       end
 
       # Load built-in adapters
@@ -137,7 +134,6 @@ module FileBot
           puts "Could not load GT.M adapter: #{e.message}" if ENV['FILEBOT_DEBUG']
         end
 
-        puts "FileBot: Loaded #{adapters.size} built-in adapters" if ENV['FILEBOT_DEBUG']
       end
 
       # Load plugin adapters from specified directory
@@ -154,20 +150,17 @@ module FileBot
         loaded_count = 0
         
         plugin_dirs.each do |dir|
-          puts "FileBot: Loading plugins from #{dir}" if ENV['FILEBOT_DEBUG']
           
           Dir.glob(File.join(dir, "*_adapter.rb")).each do |plugin_file|
             begin
               load plugin_file
               loaded_count += 1
-              puts "FileBot: Loaded plugin #{File.basename(plugin_file)}" if ENV['FILEBOT_DEBUG']
             rescue => e
               puts "Failed to load plugin #{plugin_file}: #{e.message}" if ENV['FILEBOT_DEBUG']
             end
           end
         end
 
-        puts "FileBot: Loaded #{loaded_count} plugin adapters" if ENV['FILEBOT_DEBUG'] && loaded_count > 0
       end
 
       # Initialize registry with all available adapters

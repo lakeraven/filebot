@@ -26,7 +26,6 @@ module FileBot
       validate_config!
       @loaded = true
       
-      puts "FileBot: Configuration loaded from #{@sources.size} sources" if ENV['FILEBOT_DEBUG']
       self
     end
 
