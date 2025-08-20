@@ -12,19 +12,16 @@ module FileBot
         add_to_classpath(binding_jar, "IRIS binding")
         add_to_classpath(jdbc_jar, "IRIS JDBC")
 
-        puts "FileBot: IRIS JARs loaded successfully" if ENV['FILEBOT_DEBUG']
       end
 
       # Find and load YottaDB JAR files (future implementation)
       def load_yottadb_jars!
         # YottaDB doesn't have Java JAR dependencies
-        puts "FileBot: YottaDB native installation detected" if ENV['FILEBOT_DEBUG']
       end
 
       # Find and load GT.M JAR files (future implementation)
       def load_gtm_jars!
         # GT.M doesn't have standard Java JAR dependencies
-        puts "FileBot: GT.M native installation detected" if ENV['FILEBOT_DEBUG']
       end
 
       private
@@ -96,7 +93,6 @@ module FileBot
 
         # Add to JRuby classpath
         $CLASSPATH << jar_path
-        puts "FileBot: Added #{description} JAR: #{jar_path}" if ENV['FILEBOT_DEBUG']
       end
     end
 

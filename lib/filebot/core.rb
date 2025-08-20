@@ -49,7 +49,6 @@ module FileBot
             patient = Models::Patient.find(dfn, conn)
             patient ? patient.clinical_summary[:demographics] : nil
           rescue => e
-            puts "FileBot: Patient lookup failed: #{e.message}" if ENV['FILEBOT_DEBUG']
             nil
           end
         end
@@ -133,7 +132,6 @@ module FileBot
               patient: demographics
             }
           rescue => e
-            puts "FileBot: Patient creation failed: #{e.message}" if ENV['FILEBOT_DEBUG']
             { success: false, error: e.message }
           end
         end
@@ -162,7 +160,6 @@ module FileBot
             patient = Models::Patient.find(dfn, conn)
             patient ? patient.clinical_summary : nil
           rescue => e
-            puts "FileBot: Clinical summary failed: #{e.message}" if ENV['FILEBOT_DEBUG']
             nil
           end
         end
@@ -187,7 +184,6 @@ module FileBot
           begin
             Models::Patient.delete(dfn, conn)
           rescue => e
-            puts "FileBot: Patient deletion failed: #{e.message}" if ENV['FILEBOT_DEBUG']
             { success: false, error: e.message }
           end
         end
@@ -206,7 +202,6 @@ module FileBot
           begin
             Models::Patient.boolean_search(criteria, conn)
           rescue => e
-            puts "FileBot: Boolean search failed: #{e.message}" if ENV['FILEBOT_DEBUG']
             []
           end
         end
@@ -220,7 +215,6 @@ module FileBot
           begin
             Models::Patient.range_search(field, range_criteria, conn)
           rescue => e
-            puts "FileBot: Range search failed: #{e.message}" if ENV['FILEBOT_DEBUG']
             []
           end
         end
@@ -237,7 +231,6 @@ module FileBot
             
             patient.update_multiple_fields(field_updates, conn)
           rescue => e
-            puts "FileBot: Multiple field update failed: #{e.message}" if ENV['FILEBOT_DEBUG']
             { success: false, error: e.message }
           end
         end
@@ -256,7 +249,6 @@ module FileBot
           begin
             Models::Patient.rebuild_cross_references(dfn, conn)
           rescue => e
-            puts "FileBot: Cross-reference rebuild failed: #{e.message}" if ENV['FILEBOT_DEBUG']
             { success: false, error: e.message }
           end
         end
@@ -278,7 +270,6 @@ module FileBot
             
             { success: true, allergy_ien: allergy.ien, interactions: interactions }
           rescue => e
-            puts "FileBot: Allergy management failed: #{e.message}" if ENV['FILEBOT_DEBUG']
             { success: false, error: e.message }
           end
         end
@@ -295,7 +286,6 @@ module FileBot
             
             Models::Provider.validate_patient_provider_relationship(patient_dfn, provider_ien, conn)
           rescue => e
-            puts "FileBot: Provider validation failed: #{e.message}" if ENV['FILEBOT_DEBUG']
             { valid: false, error: e.message }
           end
         end
@@ -328,7 +318,6 @@ module FileBot
 
             { alerts: alerts, recommendations: recommendations, patient_dfn: patient_dfn }
           rescue => e
-            puts "FileBot: Clinical decision support failed: #{e.message}" if ENV['FILEBOT_DEBUG']
             { alerts: ["Error: #{e.message}"], recommendations: [] }
           end
         end
@@ -358,7 +347,6 @@ module FileBot
 
             { interactions: interactions, severity: interactions.any? ? "high" : "none", safe: interactions.empty? }
           rescue => e
-            puts "FileBot: Medication interaction check failed: #{e.message}" if ENV['FILEBOT_DEBUG']
             { interactions: [], severity: "unknown", safe: false, error: e.message }
           end
         end
@@ -687,7 +675,6 @@ module FileBot
       duration = Time.now - start_time
       @perf_stats[:total_time] += duration
       
-      puts "FileBot performance error in #{operation_name}: #{error.message}" if ENV['FILEBOT_DEBUG']
     end
 
     def calculate_average_response_time
@@ -807,7 +794,6 @@ module FileBot
           # Return demographics data for compatibility
           patients.map { |patient| patient.clinical_summary[:demographics] }
         rescue => e
-          puts "FileBot: Patient search failed: #{e.message}" if ENV['FILEBOT_DEBUG']
           []
         end
       end
