@@ -1,0 +1,36 @@
+{
+  "timestamp": "2025-08-08 14:29:36",
+  "iterations": 50,
+  "platforms": [
+    "jruby",
+    "java",
+    "python"
+  ],
+  "results": {
+    "jruby": {
+      "patient_lookup_ms": 63.0,
+      "patient_creation_ms": 124.9,
+      "healthcare_workflow_ms": 218.0,
+      "total_ms": 405.9
+    },
+    "java": {
+      "patient_lookup_ms": 44.1,
+      "patient_creation_ms": 92.8,
+      "healthcare_workflow_ms": 173.7,
+      "total_ms": 310.5
+    },
+    "python": {
+      "patient_lookup_ms": 74.9,
+      "patient_creation_ms": 171.4,
+      "healthcare_workflow_ms": 254.2,
+      "total_ms": 500.5
+    }
+  },
+  "summary": {
+    "fastest_overall": "java",
+    "performance_range": {
+      "min_total_ms": 310.5,
+      "max_total_ms": 500.5
+    }
+  }
+}
