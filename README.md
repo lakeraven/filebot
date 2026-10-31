@@ -589,7 +589,7 @@ FileBot handles sensitive healthcare data. Please:
 
 ## License
 
-The gem is available as open source under the [MIT License](https://opensource.org/licenses/MIT).
+Apache-2.0. See [LICENSE](LICENSE) and [NOTICE](NOTICE).
 
 ## Healthcare Integration
 

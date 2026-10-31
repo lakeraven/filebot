@@ -16,7 +16,7 @@ Gem::Specification.new do |spec|
     multi-platform MUMPS database support (IRIS, YottaDB, GT.M).
   DESC
   spec.homepage = "https://www.github.com/lakeraven/filebot"
-  spec.license = "MIT"
+  spec.license = "Apache-2.0"
   spec.required_ruby_version = ">= 3.0.0"
 
   spec.metadata["allowed_push_host"] = "https://rubygems.org"
@@ -32,7 +32,8 @@ Gem::Specification.new do |spec|
       "exe/*", 
       "README.md",
       "CHANGELOG.md", 
-      "MIT-LICENSE",
+      "LICENSE",
+      "NOTICE",
       "doc/DEPLOYMENT.md"
     ].select { |f| File.exist?(f) }
   end
